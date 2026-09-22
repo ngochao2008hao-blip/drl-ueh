@@ -1,1105 +1,1797 @@
-<!DOCTYPE html>
-<html lang="vi">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>UEH KPI & ĐRL Assistant</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <style>
-    .bg-ueh-blue { background-color: #003366; }
-    .text-ueh-blue { color: #003366; }
-    .border-ueh-blue { border-color: #003366; }
-    .bg-item-major { background-color: #e6f0fa; }
-    .bg-item-sub { background-color: #f3f4f6; }
-    .bg-item-child { background-color: #f0fdf4; }
-    
-    /* Custom scrollbar */
-    ::-webkit-scrollbar { width: 8px; height: 8px; }
-    ::-webkit-scrollbar-track { background: #f1f1f1; }
-    ::-webkit-scrollbar-thumb { background: #888; border-radius: 4px; }
-    ::-webkit-scrollbar-thumb:hover { background: #555; }
-  </style>
-</head>
-<body class="bg-gray-100 text-gray-800 font-sans min-h-screen flex flex-col">
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  Award,
+  BookOpen,
+  Calendar,
+  CheckCircle,
+  ChevronDown,
+  ChevronRight,
+  Download,
+  ExternalLink,
+  FileCheck,
+  FileSpreadsheet,
+  Filter,
+  Image,
+  Info,
+  Layers,
+  Leaf,
+  Link as LinkIcon,
+  MessageSquare,
+  Plus,
+  RefreshCw,
+  Search,
+  Send,
+  Shield,
+  Sparkles,
+  Trash2,
+  Upload,
+  UserCheck,
+  X,
+  AlertCircle
+} from 'lucide-react';
 
-  <!-- Header & Navigation Bar -->
-  <header class="bg-ueh-blue text-white shadow-lg sticky top-0 z-50">
-    <div class="max-w-7xl mx-auto px-4 py-3 flex flex-col md:flex-row justify-between items-center gap-4">
-      <div class="flex items-center space-x-3">
-        <i class="fa-solid fa-graduation-cap text-3xl text-yellow-400"></i>
-        <div>
-          <h1 class="text-xl font-bold tracking-wide">UEH DRL & GREEN CITIZENS TRACKER</h1>
-          <p class="text-xs text-blue-200">Hệ thống Quản lý & Optimizer Điểm Rèn Luyện UEH (Aim 90-100)</p>
-        </div>
-      </div>
+// ==========================================
+// DATA STRUCTURE & INITIAL STATE
+// ==========================================
 
-      <!-- Real-time Score Display Bar -->
-      <div class="flex items-center gap-4 bg-white/10 p-2 rounded-lg border border-white/20">
-        <div class="text-center px-3 border-r border-white/20">
-          <p class="text-xs uppercase text-blue-200 font-medium">Tổng ĐRL</p>
-          <span id="drl-total-header" class="text-2xl font-black text-yellow-300">15</span><span class="text-xs text-gray-300">/100</span>
-          <span id="drl-rank-badge" class="block text-[10px] bg-red-500 text-white font-bold px-1.5 py-0.5 rounded-full mt-0.5">Kém</span>
-        </div>
-        <div class="text-center px-3">
-          <p class="text-xs uppercase text-blue-200 font-medium">Green Citizens</p>
-          <span id="green-total-header" class="text-2xl font-black text-green-400">0</span><span class="text-xs text-gray-300">/100</span>
-          <span id="green-bonus-badge" class="block text-[10px] bg-gray-600 text-white font-bold px-1.5 py-0.5 rounded-full mt-0.5">+0 ĐRL Bonus</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Navigation Tabs -->
-    <nav class="bg-blue-900/50 border-t border-blue-800">
-      <div class="max-w-7xl mx-auto flex justify-around md:justify-start space-x-2 px-4">
-        <button onclick="switchTab('tab1')" id="tab1-btn" class="py-2.5 px-5 font-semibold text-sm border-b-4 border-yellow-400 text-white flex items-center gap-2">
-          <i class="fa-solid fa-table"></i> Bảng Tính & Nhập Điểm
-        </button>
-        <button onclick="switchTab('tab2')" id="tab2-btn" class="py-2.5 px-5 font-semibold text-sm border-b-4 border-transparent text-gray-300 hover:text-white flex items-center gap-2">
-          <i class="fa-solid fa-folder-open"></i> Kho Minh Chứng
-        </button>
-        <button onclick="switchTab('tab3')" id="tab3-btn" class="py-2.5 px-5 font-semibold text-sm border-b-4 border-transparent text-gray-300 hover:text-white flex items-center gap-2">
-          <i class="fa-solid fa-brain"></i> Trợ Lý KPI & AI Analysis
-        </button>
-      </div>
-    </nav>
-  </header>
-
-  <!-- Main Content Container -->
-  <main class="max-w-7xl mx-auto px-4 py-6 flex-grow w-full">
-
-    <!-- ==================== TAB 1: BẢNG TÍNH & NHẬP ĐIỂM ==================== -->
-    <section id="tab1" class="space-y-6">
-      
-      <!-- Utility Bar -->
-      <div class="bg-white p-4 rounded-xl shadow border border-gray-200 flex flex-wrap justify-between items-center gap-4">
-        <div class="flex items-center space-x-4">
-          <label class="font-bold text-gray-700 text-sm">Chế độ hiển thị Bảng:</label>
-          <button onclick="toggleSheetView('drl')" id="btn-view-drl" class="px-4 py-1.5 rounded-lg text-sm font-semibold bg-ueh-blue text-white">
-            <i class="fa-solid fa-file-invoice mr-1"></i> Bảng ĐRL UEH
-          </button>
-          <button onclick="toggleSheetView('green')" id="btn-view-green" class="px-4 py-1.5 rounded-lg text-sm font-semibold bg-gray-200 text-gray-700 hover:bg-green-600 hover:text-white transition">
-            <i class="fa-solid fa-leaf mr-1"></i> Bảng Green Citizens
-          </button>
-        </div>
-        <div class="flex items-center space-x-2">
-          <button onclick="resetDataPrompt()" class="px-3 py-1.5 bg-red-100 text-red-600 border border-red-200 rounded-lg text-xs font-semibold hover:bg-red-200">
-            <i class="fa-solid fa-rotate-left"></i> Reset về Mặc Định
-          </button>
-          <span class="text-xs text-gray-500 italic"><i class="fa-solid fa-cloud"></i> Đã tự động lưu dữ liệu</span>
-        </div>
-      </div>
-
-      <!-- DRL SHEET CONTAINER -->
-      <div id="drl-sheet-wrapper" class="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
-        <div class="bg-blue-50 p-4 border-b border-blue-200 flex justify-between items-center">
-          <h2 class="text-lg font-bold text-ueh-blue flex items-center gap-2">
-            <i class="fa-solid fa-table-list"></i> BẢNG ĐIỂM RÈN LUYỆN (TỐI ĐA 100 ĐIỂM)
-          </h2>
-          <span class="text-xs font-medium text-blue-700 bg-blue-100 px-3 py-1 rounded-full border border-blue-300">
-            <i class="fa-solid fa-info-circle"></i> Quy tắc cap điểm áp dụng tự động theo cây phân cấp
-          </span>
-        </div>
-
-        <div class="overflow-x-auto">
-          <table class="w-full text-left text-sm border-collapse">
-            <thead>
-              <tr class="bg-gray-100 text-gray-700 border-b border-gray-300">
-                <th class="py-3 px-4 w-28 text-center font-bold">MÃ MỤC</th>
-                <th class="py-3 px-4 font-bold">TIÊU CHÍ ĐÁNH GIÁ ĐRL UEH</th>
-                <th class="py-3 px-4 w-32 text-center font-bold">ĐIỂM TỐI ĐA</th>
-                <th class="py-3 px-4 w-36 text-center font-bold">ĐIỂM ĐẠT ĐƯỢC</th>
-                <th class="py-3 px-4 w-48 text-center font-bold">TRẠNG THÁI</th>
-              </tr>
-            </thead>
-            <tbody id="drl-table-body">
-              <!-- Rendered Dynamically by JS -->
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- GREEN CITIZENS SHEET CONTAINER -->
-      <div id="green-sheet-wrapper" class="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden hidden">
-        <div class="bg-green-50 p-4 border-b border-green-200 flex justify-between items-center">
-          <h2 class="text-lg font-bold text-green-800 flex items-center gap-2">
-            <i class="fa-solid fa-leaf"></i> BẢNG TIÊU CHÍ CÔNG DÂN XANH (GREEN CITIZENS)
-          </h2>
-          <span class="text-xs font-medium text-green-700 bg-green-100 px-3 py-1 rounded-full border border-green-300">
-            <i class="fa-solid fa-award"></i> Đạt 100đ Green = Tự động +5đ vào Mục 5.5.5.4 ĐRL UEH
-          </span>
-        </div>
-
-        <div class="overflow-x-auto">
-          <table class="w-full text-left text-sm border-collapse">
-            <thead>
-              <tr class="bg-gray-100 text-gray-700 border-b border-gray-300">
-                <th class="py-3 px-4 w-28 text-center font-bold">MÃ MỤC</th>
-                <th class="py-3 px-4 font-bold">TIÊU CHÍ GREEN CITIZENS</th>
-                <th class="py-3 px-4 w-32 text-center font-bold">ĐIỂM TỐI ĐA</th>
-                <th class="py-3 px-4 w-36 text-center font-bold">ĐIỂM ĐẠT ĐƯỢC</th>
-                <th class="py-3 px-4 w-48 text-center font-bold">TRẠNG THÁI</th>
-              </tr>
-            </thead>
-            <tbody id="green-table-body">
-              <!-- Rendered Dynamically by JS -->
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-    </section>
-
-    <!-- ==================== TAB 2: KHO LƯU TRỮ MINH CHỨNG ==================== -->
-    <section id="tab2" class="space-y-6 hidden">
-      
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        <!-- Form upload minh chứng & Tạo hoạt động -->
-        <div class="bg-white p-5 rounded-xl shadow border border-gray-200 lg:col-span-1 space-y-4">
-          <h2 class="text-base font-bold text-ueh-blue border-b pb-2 flex items-center gap-2">
-            <i class="fa-solid fa-cloud-arrow-up text-blue-600"></i> Thêm Minh Chứng & Hoạt Động
-          </h2>
-          
-          <form id="evidence-form" onsubmit="handleSaveEvidence(event)" class="space-y-3">
-            <input type="hidden" id="ev-id">
-            
-            <div>
-              <label class="block text-xs font-semibold text-gray-700 mb-1">Tên Hoạt Động / Phong Trào *</label>
-              <input type="text" id="ev-title" required placeholder="VD: Cuộc thi Green Knight 2026" class="w-full text-xs p-2 border rounded focus:ring-1 focus:ring-blue-500">
-            </div>
-
-            <div class="grid grid-cols-2 gap-2">
-              <div>
-                <label class="block text-xs font-semibold text-gray-700 mb-1">Mục ĐRL/Green *</label>
-                <select id="ev-category" required class="w-full text-xs p-2 border rounded focus:ring-1 focus:ring-blue-500">
-                  <!-- Generated by JS -->
-                </select>
-              </div>
-              <div>
-                <label class="block text-xs font-semibold text-gray-700 mb-1">Điểm Dự Kiến *</label>
-                <input type="number" id="ev-score" min="0" max="20" step="0.5" required placeholder="VD: 3" class="w-full text-xs p-2 border rounded">
-              </div>
-            </div>
-
-            <div class="grid grid-cols-2 gap-2">
-              <div>
-                <label class="block text-xs font-semibold text-gray-700 mb-1">Trạng Thái *</label>
-                <select id="ev-status" class="w-full text-xs p-2 border rounded">
-                  <option value="chua_xong">Chưa Hoàn Thành</option>
-                  <option value="hoan_thanh">Đã Hoàn Thành</option>
-                </select>
-              </div>
-              <div>
-                <label class="block text-xs font-semibold text-gray-700 mb-1">Ngày Hoàn Thành</label>
-                <input type="date" id="ev-date" class="w-full text-xs p-2 border rounded">
-              </div>
-            </div>
-
-            <div>
-              <label class="block text-xs font-semibold text-gray-700 mb-1">Link Fanpage / Bài Đăng BTC</label>
-              <input type="url" id="ev-fb-link" placeholder="https://facebook.com/..." class="w-full text-xs p-2 border rounded">
-            </div>
-
-            <div>
-              <label class="block text-xs font-semibold text-gray-700 mb-1">Hình Ảnh Minh Chứng (Ảnh chụp/Chứng nhận)</label>
-              <input type="file" id="ev-image-input" accept="image/*" class="w-full text-xs text-gray-500 file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
-              <div id="image-preview-container" class="mt-2 hidden">
-                <img id="image-preview" src="" class="max-h-32 rounded border shadow-sm mx-auto">
-              </div>
-            </div>
-
-            <div class="flex gap-2 pt-2">
-              <button type="submit" class="flex-1 bg-ueh-blue text-white py-2 rounded text-xs font-bold hover:bg-blue-900 transition">
-                <i class="fa-solid fa-floppy-disk mr-1"></i> Lưu Minh Chứng
-              </button>
-              <button type="button" onclick="resetEvidenceForm()" class="px-3 bg-gray-200 text-gray-700 rounded text-xs hover:bg-gray-300">
-                Hủy
-              </button>
-            </div>
-          </form>
-        </div>
-
-        <!-- Danh sách Minh chứng & Kho theo dõi -->
-        <div class="bg-white p-5 rounded-xl shadow border border-gray-200 lg:col-span-2 space-y-4">
-          <div class="flex justify-between items-center border-b pb-2">
-            <h2 class="text-base font-bold text-ueh-blue flex items-center gap-2">
-              <i class="fa-solid fa-list-check text-green-600"></i> Khung Quản Lý Hoạt Động & Evidence Vault
-            </h2>
-            <div class="flex items-center space-x-2">
-              <input type="text" id="ev-search" oninput="renderEvidenceList()" placeholder="Lọc hoạt động..." class="text-xs p-1.5 border rounded">
-            </div>
-          </div>
-
-          <!-- Vault Grid / Table -->
-          <div id="evidence-container" class="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[600px] overflow-y-auto pr-1">
-            <!-- Rendered by JS -->
-          </div>
-        </div>
-
-      </div>
-
-    </section>
-
-    <!-- ==================== TAB 3: TRỢ LÝ TƯ VẤN KPI & AI ANALYSIS ==================== -->
-    <section id="tab3" class="space-y-6 hidden">
-      
-      <!-- Upper Section: Khảo sát & Đề xuất KPI -->
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        <!-- Khảo sát chức vụ -->
-        <div class="bg-white p-5 rounded-xl shadow border border-gray-200 space-y-4">
-          <h2 class="text-base font-bold text-ueh-blue border-b pb-2 flex items-center gap-2">
-            <i class="fa-solid fa-user-gear text-amber-500"></i> Thiết Lập Hồ Sơ Sinh Viên
-          </h2>
-          <div class="space-y-3">
-            <label class="block text-xs font-semibold text-gray-700">Bạn có giữ các chức vụ dưới đây không?</label>
-            <div class="space-y-2 text-xs">
-              <label class="flex items-center space-x-2 cursor-pointer">
-                <input type="checkbox" id="role-bcs" onchange="updateProfileRole()" class="rounded text-blue-600">
-                <span>Ban Cán sự Lớp (Lớp trưởng, Lớp phó, ...)</span>
-              </label>
-              <label class="flex items-center space-x-2 cursor-pointer">
-                <input type="checkbox" id="role-bch" onchange="updateProfileRole()" class="rounded text-blue-600">
-                <span>BCH Đoàn - Hội / CLB / Đội / Nhóm cấp Trường - Khoa</span>
-              </label>
-            </div>
-            
-            <div class="bg-amber-50 p-3 rounded-lg border border-amber-200 text-xs text-amber-800 space-y-1">
-              <p class="font-bold"><i class="fa-solid fa-lightbulb"></i> Lợi thế cán bộ:</p>
-              <p>Nếu là BCS/BCH, bạn được tự động tối ưu các mục 1.3, 2.3, 4.3 trong bảng ĐRL với số điểm cộng ưu tiên rất lớn!</p>
-            </div>
-
-            <div class="border-t pt-3 space-y-2">
-              <label class="block text-xs font-semibold text-gray-700">Mục tiêu Aim ĐRL mong muốn:</label>
-              <select id="kpi-target-select" onchange="generateKPISuggestions()" class="w-full text-xs p-2 border rounded font-bold text-blue-900">
-                <option value="100">100 Điểm (Xuất Sắc Tuyệt Đối)</option>
-                <option value="98">98 Điểm (Xuất Sắc Top Đầu)</option>
-                <option value="90" selected>90 Điểm (Loại Xuất Sắc)</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        <!-- Khung Đề xuất KPI Lấy Điểm Nhanh -->
-        <div class="bg-white p-5 rounded-xl shadow border border-gray-200 lg:col-span-2 space-y-4">
-          <div class="flex justify-between items-center border-b pb-2">
-            <h2 class="text-base font-bold text-ueh-blue flex items-center gap-2">
-              <i class="fa-solid fa-bullseye text-red-500"></i> Chiến Lược Gợi Ý KPI Đạt Target (<span id="target-display">90</span>+ ĐRL)
-            </h2>
-            <span class="text-xs text-gray-500">Tối ưu từ mục dễ đến khó</span>
-          </div>
-
-          <div id="kpi-suggestions-list" class="space-y-2 max-h-[220px] overflow-y-auto pr-1">
-            <!-- Rendered by JS -->
-          </div>
-        </div>
-
-      </div>
-
-      <!-- Lower Section: FB Post Reader & AI Assistant -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        
-        <!-- Bộ phân tích FB Post Reader -->
-        <div class="bg-white p-5 rounded-xl shadow border border-gray-200 space-y-4 flex flex-col justify-between">
-          <div>
-            <h2 class="text-base font-bold text-ueh-blue border-b pb-2 flex items-center justify-between">
-              <span class="flex items-center gap-2"><i class="fa-brands fa-facebook text-blue-600 text-lg"></i> FB Post Reader & Matcher</span>
-              <span class="text-[10px] bg-blue-100 text-blue-800 px-2 py-0.5 rounded">Search DRS Dynamic</span>
-            </h2>
-            <p class="text-xs text-gray-500 mt-2">Dán văn bản thông báo hoạt động/phong trào từ Fanpage UEH vào đây để hệ thống phân tích mục ĐRL tương ứng:</p>
-            
-            <textarea id="fb-post-input" rows="5" placeholder="Ví dụ: Dán thông báo 'Đăng ký tham gia Cuộc thi Tỏa Sáng Sinh Viên Green Citizens UEH 2026 nhận ngay 5đ Mục 3.4.3.4 và 10đ Green Citizens...'" class="w-full text-xs p-3 border rounded-lg mt-2 focus:ring-1 focus:ring-blue-500"></textarea>
-
-            <button onclick="analyzeFBPost()" class="w-full mt-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-lg text-xs flex items-center justify-center gap-2 transition">
-              <i class="fa-solid fa-microchip"></i> Phân Tích Bài Đăng & Tìm Mục ĐRL
-            </button>
-          </div>
-
-          <!-- Ket qua phan tich FB Post -->
-          <div id="post-analysis-result" class="hidden mt-4 bg-gray-50 p-4 rounded-lg border space-y-3">
-            <div class="flex justify-between items-start">
-              <div>
-                <span id="analysis-tag" class="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-100 text-blue-800">MỤC ĐEN</span>
-                <h3 id="analysis-title" class="text-sm font-bold text-gray-800 mt-1">--</h3>
-              </div>
-              <span id="analysis-recommendation" class="text-xs font-black px-2 py-1 rounded">--</span>
-            </div>
-
-            <div class="text-xs space-y-1 text-gray-600 border-t pt-2">
-              <p><strong>Mục ĐRL đề xuất:</strong> <span id="analysis-category" class="font-bold text-blue-700">--</span></p>
-              <p><strong>Điểm dự kiến:</strong> <span id="analysis-score" class="font-bold text-green-700">--</span></p>
-              <p><strong>Tình trạng điểm hiện tại của bạn:</strong> <span id="analysis-current-status">--</span></p>
-            </div>
-
-            <div class="flex gap-2 border-t pt-2">
-              <button onclick="addAnalyzedToVault()" class="flex-1 bg-green-600 hover:bg-green-700 text-white text-xs font-bold py-1.5 rounded">
-                <i class="fa-solid fa-plus mr-1"></i> Thêm vào Kho Minh Chứng
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- AI Assistant & Tra Cứu Quy Định UEH -->
-        <div class="bg-white p-5 rounded-xl shadow border border-gray-200 flex flex-col justify-between">
-          <div>
-            <h2 class="text-base font-bold text-ueh-blue border-b pb-2 flex items-center gap-2">
-              <i class="fa-solid fa-robot text-purple-600"></i> AI Consultation & Tra Cứu Quy Định DRS
-            </h2>
-            
-            <div id="ai-chat-box" class="mt-3 bg-gray-50 border rounded-lg p-3 h-48 overflow-y-auto space-y-3 text-xs">
-              <div class="bg-blue-100 text-blue-900 p-2.5 rounded-lg max-w-[85%]">
-                Xin chào! Tôi là Trợ Lý AI ĐRL UEH. Bạn có thắc mắc về quy chế cộng điểm, cách lấy điểm max các mục hoặc thông tin đợt reset ĐRL không?
-              </div>
-            </div>
-          </div>
-
-          <div class="mt-3 space-y-2">
-            <div class="flex gap-2">
-              <input type="text" id="ai-query-input" onkeypress="if(event.key==='Enter') sendAIChat()" placeholder="Hỏi AI về quy chế ĐRL, các phong trào sắp mở..." class="flex-1 text-xs p-2 border rounded focus:ring-1 focus:ring-purple-500">
-              <button onclick="sendAIChat()" class="bg-purple-600 hover:bg-purple-700 text-white px-4 rounded text-xs font-bold">
-                <i class="fa-solid fa-paper-plane"></i>
-              </button>
-            </div>
-            
-            <div class="flex flex-wrap gap-1 text-[11px]">
-              <button onclick="quickAIQuery('Khi nào reset điểm ĐRL?')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-1 rounded">Reset ĐRL khi nào?</button>
-              <button onclick="quickAIQuery('Mục 5.5.5.4 cộng điểm sao?')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-1 rounded">Cộng điểm Green Citizens?</button>
-              <button onclick="quickAIQuery('Làm sao max mục 3.4?')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-1 rounded">Cách max mục 3.4?</button>
-            </div>
-          </div>
-        </div>
-
-      </div>
-
-    </section>
-
-  </main>
-
-  <!-- Footer -->
-  <footer class="bg-gray-800 text-gray-400 py-4 text-center text-xs mt-auto border-t border-gray-700">
-    <div class="max-w-7xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-2">
-      <p>© 2026 UEH Student Assistant - Thiết kế chuyên biệt cho Sinh viên Đại học UEH</p>
-      <p class="text-gray-500">Dữ liệu tham chiếu chuẩn Quy định ĐRL & Công dân xanh UEH</p>
-    </div>
-  </footer>
-
-  <!-- JAVASCRIPT SYSTEM ENGINE -->
-  <script>
-    /* ==========================================================================
-       1. CẤU TRÚC DỮ LIỆU ĐRL & GREEN CITIZENS CHI TIẾT CỦA UEH (TREE STRUCTURE)
-       ========================================================================== */
-    
-    // Dữ liệu tiêu chuẩn ĐRL UEH
-    const DRL_DATA = [
+const DRL_STRUCTURE = [
+  {
+    id: "1",
+    code: "1",
+    name: "Đánh giá trách nhiệm chấp hành pháp luật và nội quy, quy chế của UEH",
+    maxScore: 25,
+    baseScore: 15,
+    children: [
       {
-        id: "1", code: "1", title: "Mục 1: Ý thức học tập (Tối đa 20 điểm)", max: 20, type: "major",
+        id: "1.1",
+        code: "1.1",
+        name: "Ý thức chấp hành quy định pháp luật, chấp hành nội quy, quy chế, quy định tại UEH",
+        maxScore: 15,
+        baseScore: 15,
+        isBaseFixed: true
+      },
+      {
+        id: "1.2",
+        code: "1.2",
+        name: "Tham gia học tập Tuần sinh hoạt công dân - Sinh viên",
+        maxScore: 10,
         children: [
-          { id: "1.1", code: "1.1", title: "Ý thức và thái độ trong học tập (Mặc định 15đ)", max: 15, default: 15, type: "sub" },
-          { id: "1.2", code: "1.2", title: "Tham gia các câu lạc bộ học thuật, NCKH", max: 5, type: "sub",
+          { id: "1.2.1", code: "1.2.1", name: "Điểm đánh giá kết quả sinh hoạt công dân đợt học chính thức", maxScore: 10 },
+          { id: "1.2.2", code: "1.2.2", name: "Điểm đánh giá kết quả sinh hoạt công dân đợt học bù", maxScore: 5 } // Changed from 6 to 5 as required
+        ]
+      },
+      {
+        id: "1.3",
+        code: "1.3",
+        name: "Thiếu ý thức trong chấp hành nội quy, quy chế, quy định, trong thực hiện văn hóa trường học; vắng sinh hoạt lớp, sinh hoạt chính trị, các buổi học trong tuần lễ sinh hoạt công dân",
+        maxScore: -10,
+        isNegative: true,
+        children: [
+          { id: "1.3.1", code: "1.3.1", name: "Thiếu ý thức trong kê khai, bổ sung đánh giá kết quả rèn luyện", maxScore: -10, isNegative: true },
+          { id: "1.3.2", code: "1.3.2", name: "Thiếu ý thức trong chấp hành nội quy, quy chế... có đề xuất từ đơn vị phụ trách", maxScore: -10, isNegative: true }
+        ]
+      },
+      {
+        id: "1.4",
+        code: "1.4",
+        name: "Vi phạm quy chế, quy định về công tác sinh viên đến mức phải chịu hình thức kỷ luật",
+        maxScore: -10,
+        isNegative: true,
+        children: [
+          { id: "1.4.1", code: "1.4.1", name: "Khiển trách", maxScore: -10, isNegative: true },
+          { id: "1.4.2", code: "1.4.2", name: "Cảnh cáo", maxScore: -10, isNegative: true },
+          { id: "1.4.3", code: "1.4.3", name: "Đình chỉ học tập có thời hạn", maxScore: -10, isNegative: true }
+        ]
+      }
+    ]
+  },
+  {
+    id: "2",
+    code: "2",
+    name: "Trách nhiệm, tinh thần và thái độ trong học tập tại UEH",
+    maxScore: 20,
+    baseScore: 10,
+    children: [
+      {
+        id: "2.1",
+        code: "2.1",
+        name: "Ý thức, trách nhiệm trong học tập tại UEH",
+        maxScore: 10,
+        baseScore: 10,
+        isBaseFixed: true
+      },
+      {
+        id: "2.2",
+        code: "2.2",
+        name: "Thái độ, tinh thần vượt khó, phấn đấu vươn lên trong học tập",
+        maxScore: 5, // Changed from 6 to 5
+        children: [
+          {
+            id: "2.2.1",
+            code: "2.2.1",
+            name: "Kết quả học tập (xếp loại theo điểm trung bình tích lũy học tập)",
+            maxScore: 5,
             children: [
-              { id: "1.2.1", code: "1.2.1", title: "Thành viên CLB học thuật chính thức", max: 3, type: "child" },
-              { id: "1.2.2", code: "1.2.2", title: "Tham gia đề tài Nghiên cứu khoa học / UEH500", max: 5, type: "child" }
+              { id: "2.2.1.1", code: "2.2.1.1", name: "Yếu", maxScore: 0 },
+              { id: "2.2.1.2", code: "2.2.1.2", name: "Kém", maxScore: 1 },
+              { id: "2.2.1.3", code: "2.2.1.3", name: "Trung bình", maxScore: 2 },
+              { id: "2.2.1.4", code: "2.2.1.4", name: "Khá", maxScore: 3 },
+              { id: "2.2.1.5", code: "2.2.1.5", name: "Giỏi", maxScore: 4 },
+              { id: "2.2.1.6", code: "2.2.1.6", name: "Xuất sắc", maxScore: 5 }
             ]
           },
-          { id: "1.3", code: "1.3", title: "Thành tích trong học tập và NCKH (Bán cán sự/Cán bộ)", max: 5, type: "sub" }
-        ]
-      },
-      {
-        id: "2", code: "2", title: "Mục 2: Ý thức chấp hành quy chế, quy định (Tối đa 25 điểm)", max: 25, type: "major",
-        children: [
-          { id: "2.1", code: "2.1", title: "Chấp hành các văn bản quy phạm pháp luật, nội quy UEH (Mặc định 10đ)", max: 10, default: 10, type: "sub" },
-          { id: "2.2", code: "2.2", title: "Tham gia đầy đủ các buổi sinh hoạt công dân, SHDC, Tuần sinh hoạt công dân", max: 10, type: "sub" },
-          { id: "2.3", code: "2.3", title: "Thực hiện tốt công tác phòng chống tệ nạn xã hội, an toàn giao thông", max: 5, type: "sub" }
-        ]
-      },
-      {
-        id: "3", code: "3", title: "Mục 3: Ý thức tham gia các hoạt động chính trị, xã hội, văn hóa, thể thao (Tối đa 20 điểm)", max: 20, type: "major",
-        children: [
-          { id: "3.1", code: "3.1", title: "Tham gia các hoạt động rèn luyện chính trị, tư tưởng (Mặc định 5đ)", max: 5, default: 5, type: "sub" },
-          { id: "3.2", code: "3.2", title: "Tham gia các hoạt động văn hóa, văn nghệ, thể thao cấp Trường/Khoa", max: 5, type: "sub" },
-          { id: "3.3", code: "3.3", title: "Tham gia các hoạt động tình nguyện, Mùa hè xanh, Tiếp sức đến trường", max: 5, type: "sub" },
           {
-            id: "3.4", code: "3.4", title: "Tham gia các hội thảo, webinar, tọa đàm kỹ năng (Tối đa 10đ)", max: 10, type: "sub",
+            id: "2.2.2",
+            code: "2.2.2",
+            name: "Thiếu ý thức trong học tập (vi phạm quy định học vụ, khảo thí...)",
+            maxScore: -10,
+            isNegative: true,
             children: [
-              { id: "3.4.1", code: "3.4.1", title: "Tham gia Chuyên đề kỹ năng soft-skills", max: 5, type: "child" },
-              {
-                id: "3.4.3", code: "3.4.3", title: "Tham gia các cuộc thi kiến thức / Hội thảo chuyên môn", max: 10, type: "child",
-                children: [
-                  { id: "3.4.3.3", code: "3.4.3.3", title: "Hội thảo Quốc tế / Cấp Trường", max: 5, type: "child" },
-                  { id: "3.4.3.4", code: "3.4.3.4", title: "Tham gia các cuộc thi học thuật cấp Khoa/Trường", max: 5, type: "child" }
-                ]
-              }
+              { id: "2.2.2.1", code: "2.2.2.1", name: "Vi phạm quy định học vụ, hoạt động đánh giá", maxScore: -10, isNegative: true },
+              { id: "2.2.2.2", code: "2.2.2.2", name: "Bị xử lý Khiển trách trong thi kết thúc học phần", maxScore: -10, isNegative: true },
+              { id: "2.2.2.3", code: "2.2.2.3", name: "Bị xử lý Cảnh cáo trong thi kết thúc học phần", maxScore: -10, isNegative: true },
+              { id: "2.2.2.4", code: "2.2.2.4", name: "Bị xử lý Đình chỉ thi trong thi kết thúc học phần", maxScore: -10, isNegative: true }
             ]
           }
         ]
       },
       {
-        id: "4", code: "4", title: "Mục 4: Ý thức công dân trong quan hệ cộng đồng (Tối đa 25 điểm)", max: 25, type: "major",
+        id: "2.3",
+        code: "2.3",
+        name: "Tham gia trao đổi sinh viên với tư cách là sinh viên UEH",
+        maxScore: 10,
         children: [
-          { id: "4.1", code: "4.1", title: "Tuyên truyền, thực hiện tốt chủ trương của Đảng, Nhà nước (Mặc định 10đ)", max: 10, default: 10, type: "sub" },
-          { id: "4.2", code: "4.2", title: "Tham gia các hoạt động xã hội, từ thiện, hiến máu nhân đạo", max: 10, type: "sub" },
-          { id: "4.3", code: "4.3", title: "Có tinh thần tương thân tương ái, giúp đỡ bạn bè trong học tập", max: 5, type: "sub" }
-        ]
-      },
-      {
-        id: "5", code: "5", title: "Mục 5: Ý thức và kết quả tham gia phụ trách lớp, đoàn thể (Tối đa 10 điểm)", max: 10, type: "major",
-        children: [
-          { id: "5.1", code: "5.1", title: "Thành viên tích cực tham gia phong trào Lớp/Đoàn/Hội (Mặc định 10đ)", max: 10, default: 10, type: "sub" },
-          { id: "5.2", code: "5.2", title: "Cán bộ Lớp, Cán bộ Đoàn - Hội hoàn thành xuất sắc nhiệm vụ", max: 5, type: "sub" },
           {
-            id: "5.5", code: "5.5", title: "Đạt các danh hiệu thi đua xuất sắc", max: 5, type: "sub",
+            id: "2.3.1",
+            code: "2.3.1",
+            name: "Trong nước",
+            maxScore: 5,
             children: [
-              {
-                id: "5.5.5", code: "5.5.5", title: "Danh hiệu Khen thưởng cấp Trường", max: 5, type: "child",
-                children: [
-                  { id: "5.5.5.4", code: "5.5.5.4", title: "Đạt danh hiệu Công Dân Xanh UEH (Green Citizens Bonus +5đ)", max: 5, type: "child" }
-                ]
-              }
+              { id: "2.3.1.1", code: "2.3.1.1", name: "Ngắn hạn (dưới 4 tuần)", maxScore: 3 },
+              { id: "2.3.1.2", code: "2.3.1.2", name: "Dài hạn (>= 4 tuần)", maxScore: 5 } // Changed from 6 to 5
+            ]
+          },
+          {
+            id: "2.3.2",
+            code: "2.3.2",
+            name: "Quốc tế",
+            maxScore: 10,
+            children: [
+              { id: "2.3.2.1", code: "2.3.2.1", name: "Ngắn hạn (dưới 4 tuần)", maxScore: 5 }, // Changed from 6 to 5
+              { id: "2.3.2.2", code: "2.3.2.2", name: "Dài hạn (>= 4 tuần)", maxScore: 10 }
             ]
           }
         ]
-      }
-    ];
-
-    // Dữ liệu tiêu chuẩn Green Citizens UEH
-    const GREEN_DATA = [
+      },
       {
-        id: "g1", code: "G1", title: "Góc Độ Nhận Thức Xanh (Tối đa 30 điểm)", max: 30, type: "major",
+        id: "2.4",
+        code: "2.4",
+        name: "Thành viên đội tuyển UEH dự thi các cuộc thi cấp trên hoặc tương đương về học thuật, NCKH...",
+        maxScore: 10
+      },
+      {
+        id: "2.5",
+        code: "2.5",
+        name: "Hoàn thành học phần Thực tập và tốt nghiệp",
+        maxScore: 5
+      },
+      {
+        id: "2.6",
+        code: "2.6",
+        name: "Thực hiện nghiên cứu khoa học (công trình, bài báo khoa học, kỷ yếu...)",
+        maxScore: 5, // Changed from 6 to 5
         children: [
-          { id: "g1.1", code: "G1.1", title: "Hoàn thành khóa học Trực tuyến Công dân xanh UEH", max: 15, type: "sub" },
-          { id: "g1.2", code: "G1.2", title: "Tham gia các bài kiểm tra/quiz về Môi trường & Đổi mới sáng tạo", max: 15, type: "sub" }
+          { id: "2.6.1", code: "2.6.1", name: "Tại UEH - Cấp Khoa/Viện, CLB/Đ/N", maxScore: 3 },
+          { id: "2.6.2", code: "2.6.2", name: "Tại UEH - Cấp UEH, Đoàn - Hội UEH", maxScore: 4 },
+          { id: "2.6.3", code: "2.6.3", name: "Ngoài UEH (trong nước và quốc tế)", maxScore: 5 } // Changed from 6 to 5
         ]
       },
       {
-        id: "g2", code: "G2", title: "Hành Động Xanh Tại UEH Campus (Tối đa 40 điểm)", max: 40, type: "major",
+        id: "2.7",
+        code: "2.7",
+        name: "Ý thức tham gia hoạt động ngoại khóa về học thuật, khoa học, công nghệ, khởi nghiệp",
+        maxScore: 10,
         children: [
-          { id: "g2.1", code: "G2.1", title: "Phân loại rác đúng quy định tại các Trạm Go Green UEH", max: 20, type: "sub" },
-          { id: "g2.2", code: "G2.2", title: "Sử dụng bình nước cá nhân, không dùng nhựa 1 lần tại Campus", max: 20, type: "sub" }
+          { id: "2.7.1", code: "2.7.1", name: "Là thành viên câu lạc bộ, đội, nhóm về học thuật, NCKH", maxScore: 2 },
+          { id: "2.7.2", code: "2.7.2", name: "Tham gia hoạt động tham quan doanh nghiệp", maxScore: 5 }, // Changed 6 -> 5
+          {
+            id: "2.7.3",
+            code: "2.7.3",
+            name: "Thành viên BTC, tham gia hoạt động ngoại khóa về học thuật, NCKH",
+            maxScore: 10,
+            children: [
+              { id: "2.7.3.1", code: "2.7.3.1", name: "Tham dự hoạt động cấp UEH / Trường thành viên", maxScore: 5 },
+              { id: "2.7.3.2", code: "2.7.3.2", name: "Tham dự hoạt động cấp Khoa/Viện, CLB/Đ/N", maxScore: 5 },
+              { id: "2.7.3.3", code: "2.7.3.3", name: "Thành viên BTC hoạt động cấp UEH / Trường thành viên", maxScore: 5 },
+              { id: "2.7.3.4", code: "2.7.3.4", name: "Thành viên BTC hoạt động cấp Khoa/Viện, CLB/Đ/N", maxScore: 5 },
+              { id: "2.7.3.5", code: "2.7.3.5", name: "Ngoài UEH: Tham gia/BTC cuộc thi khởi nghiệp", maxScore: 2 }
+            ]
+          },
+          {
+            id: "2.7.4",
+            code: "2.7.4",
+            name: "Thành viên BTC, thí sinh, thành viên đội nhóm dự thi các cuộc thi về học thuật",
+            maxScore: 10,
+            children: [
+              { id: "2.7.4.1", code: "2.7.4.1", name: "Tại UEH: Thí sinh/Đội thi cấp UEH / Trường thành viên", maxScore: 5 }, // Changed 6 -> 5
+              { id: "2.7.4.2", code: "2.7.4.2", name: "Tại UEH: Thí sinh/Đội thi cấp Khoa/Viện, CLB/Đ/N", maxScore: 5 },
+              { id: "2.7.4.3", code: "2.7.4.3", name: "Tại UEH: Thành viên BTC cuộc thi cấp UEH", maxScore: 5 },
+              { id: "2.7.4.4", code: "2.7.4.4", name: "Tại UEH: Thành viên BTC cuộc thi cấp Khoa/Viện", maxScore: 5 },
+              { id: "2.7.4.5", code: "2.7.4.5", name: "Ngoài UEH: Tham gia/BTC cuộc thi học thuật ngoài", maxScore: 2 }
+            ]
+          }
         ]
       },
       {
-        id: "g3", code: "G3", title: "Lan Tỏa & Dự Án Xanh Cộng Đồng (Tối đa 30 điểm)", max: 30, type: "major",
+        id: "2.8",
+        code: "2.8",
+        name: "Thiếu ý thức trong tham gia hoạt động ngoại khóa về học thuật, NCKH",
+        maxScore: -15,
+        isNegative: true,
         children: [
-          { id: "g3.1", code: "G3.1", title: "Tham gia Ngày hội Green Day / Đổi rác lấy quà", max: 15, type: "sub" },
-          { id: "g3.2", code: "G3.2", title: "Thực hiện dự án/sáng kiến phát triển bền vững Green UEH", max: 15, type: "sub" }
+          { id: "2.8.1", code: "2.8.1", name: "Thiếu ý thức trong tham gia có đề nghị xử lý từ BTC", maxScore: -15, isNegative: true },
+          { id: "2.8.2", code: "2.8.2", name: "Nhờ người tham gia hộ / tham gia hộ hoạt động", maxScore: -15, isNegative: true }
         ]
       }
-    ];
+    ]
+  },
+  {
+    id: "3",
+    code: "3",
+    name: "Đánh giá về ý thức tham gia các hoạt động chính trị, xã hội, văn hóa, văn nghệ, thể thao, bảo vệ môi trường",
+    maxScore: 20,
+    baseScore: 5,
+    children: [
+      {
+        id: "3.1",
+        code: "3.1",
+        name: "Có trách nhiệm tham gia hoạt động chính trị, xã hội, văn hóa, văn nghệ, thể thao, phát triển bền vững",
+        maxScore: 5,
+        baseScore: 5,
+        isBaseFixed: true
+      },
+      {
+        id: "3.2",
+        code: "3.2",
+        name: "Thành viên đội tuyển UEH dự thi các cuộc thi cấp trên về văn hóa, thể thao, xã hội",
+        maxScore: 10
+      },
+      {
+        id: "3.3",
+        code: "3.3",
+        name: "Tham gia hoạt động thể hiện ý thức trách nhiệm xã hội, phát triển bền vững, đại học xanh",
+        maxScore: 10,
+        children: [
+          { id: "3.3.1", code: "3.3.1", name: "Thành viên CLB/Đ/N về phát triển bền vững, đại học xanh", maxScore: 2 },
+          {
+            id: "3.3.2",
+            code: "3.3.2",
+            name: "Tham dự / Thành viên BTC các hoạt động phát triển bền vững, đại học xanh",
+            maxScore: 10,
+            children: [
+              { id: "3.3.2.1", code: "3.3.2.1", name: "Tại UEH: Tham dự hoạt động cấp UEH / Trường thành viên", maxScore: 5 }, // Changed 6 -> 5
+              { id: "3.3.2.2", code: "3.3.2.2", name: "Tại UEH: Tham dự hoạt động cấp Khoa/Viện, CLB/Đ/N", maxScore: 5 }, // Changed 6 -> 5
+              { id: "3.3.2.3", code: "3.3.2.3", name: "Tại UEH: Thành viên BTC hoạt động cấp UEH", maxScore: 5 },
+              { id: "3.3.2.4", code: "3.3.2.4", name: "Tại UEH: Thành viên BTC hoạt động cấp Khoa/Viện", maxScore: 5 }, // Changed 6 -> 5
+              { id: "3.3.2.5", code: "3.3.2.5", name: "Ngoài UEH: Tham gia/BTC hoạt động xanh", maxScore: 2 }
+            ]
+          },
+          {
+            id: "3.3.3",
+            code: "3.3.3",
+            name: "Thành viên BTC, Thí sinh, đội nhóm dự thi các cuộc thi phát triển bền vững, đại học xanh",
+            maxScore: 10,
+            children: [
+              { id: "3.3.3.1", code: "3.3.3.1", name: "Tại UEH: Tham dự/Thí sinh cấp UEH", maxScore: 5 },
+              { id: "3.3.3.2", code: "3.3.3.2", name: "Tại UEH: Tham dự/Thí sinh cấp Khoa/Viện", maxScore: 5 },
+              { id: "3.3.3.3", code: "3.3.3.3", name: "Tại UEH: Thành viên BTC cấp UEH", maxScore: 5 },
+              { id: "3.3.3.4", code: "3.3.3.4", name: "Tại UEH: Thành viên BTC cấp Khoa/Viện", maxScore: 5 },
+              { id: "3.3.3.5", code: "3.3.3.5", name: "Ngoài UEH: Tham gia/BTC các hoạt động ngoài", maxScore: 2 }
+            ]
+          }
+        ]
+      },
+      {
+        id: "3.4",
+        code: "3.4",
+        name: "Tham gia hoạt động chính trị, xã hội, văn hóa, văn nghệ, thể thao, phòng chống tệ nạn",
+        maxScore: 10,
+        children: [
+          { id: "3.4.1", code: "3.4.1", name: "Thành viên CLB, đội, nhóm về hoạt động phong trào, tình nguyện UEH", maxScore: 2 },
+          {
+            id: "3.4.2",
+            code: "3.4.2",
+            name: "Tham dự / Thành viên BTC các buổi sinh hoạt, hoạt động phong trào",
+            maxScore: 5,
+            children: [
+              { id: "3.4.2.1", code: "3.4.2.1", name: "Tại UEH: Tham dự hoạt động cấp UEH / Trường thành viên", maxScore: 5 },
+              { id: "3.4.2.2", code: "3.4.2.2", name: "Tại UEH: Tham dự hoạt động cấp Khoa/Viện", maxScore: 5 }, // Changed 6 -> 5
+              { id: "3.4.2.3", code: "3.4.2.3", name: "Tại UEH: Thành viên BTC cấp UEH", maxScore: 5 }, // Changed 6 -> 5
+              { id: "3.4.2.4", code: "3.4.2.4", name: "Tại UEH: Thành viên BTC cấp Khoa/Viện", maxScore: 5 },
+              { id: "3.4.2.5", code: "3.4.2.5", name: "Ngoài UEH: Tham gia/BTC hoạt động phong trào", maxScore: 2 }
+            ]
+          },
+          {
+            id: "3.4.3",
+            code: "3.4.3",
+            name: "Thành viên BTC, thí sinh, đội nhóm dự thi các cuộc thi văn nghệ, thể thao, tình nguyện",
+            maxScore: 5,
+            children: [
+              { id: "3.4.3.1", code: "3.4.3.1", name: "Tại UEH: Tham dự/Thí sinh cấp UEH", maxScore: 5 },
+              { id: "3.4.3.2", code: "3.4.3.2", name: "Tại UEH: Tham dự/Thí sinh cấp Khoa/Viện", maxScore: 5 },
+              { id: "3.4.3.3", code: "3.4.3.3", name: "Tại UEH: Thành viên BTC cấp UEH", maxScore: 5 },
+              { id: "3.4.3.4", code: "3.4.3.4", name: "Tại UEH: Thành viên BTC cấp Khoa/Viện", maxScore: 5 }, // Changed 6 -> 5
+              { id: "3.4.3.5", code: "3.4.3.5", name: "Ngoài UEH: Tham gia/BTC các hoạt động phong trào", maxScore: 2 }
+            ]
+          }
+        ]
+      },
+      {
+        id: "3.5",
+        code: "3.5",
+        name: "Trách nhiệm tham gia các hoạt động công ích, tình nguyện, công tác xã hội",
+        maxScore: 5,
+        children: [
+          { id: "3.5.1", code: "3.5.1", name: "Tích cực tham gia hoạt động tại địa phương nơi cư trú", maxScore: 2 },
+          { id: "3.5.2", code: "3.5.2", name: "Tham gia hoạt động tình nguyện vì cộng đồng (hiến máu, công ích, tiếp sức mùa thi)", maxScore: 5 } // Changed 6 -> 5
+        ]
+      },
+      {
+        id: "3.6",
+        code: "3.6",
+        name: "Chiến sĩ tham gia chiến dịch tình nguyện sinh viên UEH",
+        maxScore: 5
+      },
+      {
+        id: "3.7",
+        code: "3.7",
+        name: "Sinh viên khuyết tật, mồ côi, hoàn cảnh đặc biệt khó khăn",
+        maxScore: 10
+      },
+      {
+        id: "3.8",
+        code: "3.8",
+        name: "Thiếu ý thức tham gia các hoạt động chính trị, xã hội, văn hóa, thể thao, bảo vệ môi trường",
+        maxScore: -15,
+        isNegative: true,
+        children: [
+          { id: "3.8.1", code: "3.8.1", name: "Thiếu ý thức trong tham gia có đề nghị xử lý từ BTC", maxScore: -15, isNegative: true },
+          { id: "3.8.2", code: "3.8.2", name: "Nhờ người tham gia hộ / tham gia hộ hoạt động", maxScore: -15, isNegative: true }
+        ]
+      }
+    ]
+  },
+  {
+    id: "4",
+    code: "4",
+    name: "Đánh giá về ý thức công dân trong quan hệ cộng đồng",
+    maxScore: 15,
+    baseScore: 10,
+    children: [
+      {
+        id: "4.1",
+        code: "4.1",
+        name: "Sinh hoạt tại cộng đồng (thực hiện kê khai và cập nhật thông tin nội - ngoại trú)",
+        maxScore: 10,
+        baseScore: 10,
+        isBaseFixed: true,
+        children: [
+          { id: "4.1.1", code: "4.1.1", name: "Có thực hiện kê khai và cập nhật thông tin nội - ngoại trú sinh viên", maxScore: 5 }
+        ]
+      },
+      {
+        id: "4.2",
+        code: "4.2",
+        name: "Nhận giấy khen, bằng khen của chính quyền, tổ chức chính trị - xã hội trong hoạt động xã hội",
+        maxScore: 5,
+        children: [
+          { id: "4.2.1", code: "4.2.1", name: "Cấp xã/phường, đặc khu (tương đương)", maxScore: 5 },
+          { id: "4.2.2", code: "4.2.2", name: "Cấp tỉnh/thành phố trở lên (tương đương)", maxScore: 15 }
+        ]
+      }
+    ]
+  },
+  {
+    id: "5",
+    code: "5",
+    name: "Đánh giá về ý thức và kết quả tham gia công tác cán bộ lớp, đoàn thể, thành tích đặc biệt",
+    maxScore: 20,
+    baseScore: 10,
+    children: [
+      {
+        id: "5.1",
+        code: "5.1",
+        name: "Tinh thần trách nhiệm, thái độ làm việc, uy tín cá nhân trong công việc",
+        maxScore: 10,
+        baseScore: 10,
+        isBaseFixed: true
+      },
+      {
+        id: "5.2",
+        code: "5.2",
+        name: "Được kết nạp vào Đảng Cộng sản Việt Nam (chỉ tính trong học kỳ được kết nạp)",
+        maxScore: 10
+      },
+      {
+        id: "5.3",
+        code: "5.3",
+        name: "Hoàn thành nhiệm vụ quản lý lớp, các tổ chức Đảng, Đoàn, Hội và các tổ chức khác trong UEH",
+        maxScore: 5,
+        children: [
+          { id: "5.3.1", code: "5.3.1", name: "Ban cán sự lớp sinh viên", maxScore: 3 },
+          { id: "5.3.2", code: "5.3.2", name: "Ban Chấp hành Chi đoàn", maxScore: 3 },
+          { id: "5.3.3", code: "5.3.3", name: "Ban Chấp hành Chi hội", maxScore: 3 },
+          { id: "5.3.4", code: "5.3.4", name: "Ban Điều hành, Ban Chủ nhiệm Câu lạc bộ, đội, nhóm", maxScore: 3 },
+          { id: "5.3.5", code: "5.3.5", name: "Ban Chấp hành Đoàn khoa, viện", maxScore: 4 },
+          { id: "5.3.6", code: "5.3.6", name: "Ban Chấp hành Liên Chi hội sinh viên khoa, viện, KTX", maxScore: 4 },
+          { id: "5.3.7", code: "5.3.7", name: "Ban Chấp hành Đoàn UEH, trường thành viên, phân hiệu", maxScore: 5 },
+          { id: "5.3.8", code: "5.3.8", name: "Ban Chấp hành Hội Sinh viên UEH, trường thành viên, phân hiệu", maxScore: 5 },
+          { id: "5.3.9", code: "5.3.9", name: "Cấp ủy Chi bộ khối sinh viên", maxScore: 5 }
+        ]
+      },
+      {
+        id: "5.4",
+        code: "5.4",
+        name: "Hỗ trợ và tham gia tích cực vào hoạt động chung tại UEH",
+        maxScore: 5,
+        children: [
+          { id: "5.4.1", code: "5.4.1", name: "Hỗ trợ và tham gia tích cực hoạt động lớp / được CVHT ghi nhận", maxScore: 2 },
+          { id: "5.4.2", code: "5.4.2", name: "Hỗ trợ và tham gia tích cực hoạt động chung của khoa, viện", maxScore: 3 },
+          {
+            id: "5.4.3",
+            code: "5.4.3",
+            name: "Hỗ trợ và tham gia tích cực hoạt động chung của trường thành viên / toàn UEH",
+            maxScore: 5,
+            children: [
+              { id: "5.4.3.1", code: "5.4.3.1", name: "Thời gian tham gia hỗ trợ đơn vị dưới 03 tháng (ngắn hạn, TNV/CTV)", maxScore: 3 },
+              { id: "5.4.3.2", code: "5.4.3.2", name: "Thời gian hỗ trợ đơn vị từ 3 tháng trở lên", maxScore: 5 } // Changed 6 -> 5
+            ]
+          }
+        ]
+      },
+      {
+        id: "5.5",
+        code: "5.5",
+        name: "Đạt giải thưởng, danh hiệu, thành tích cao trong học tập, rèn luyện",
+        maxScore: 10,
+        children: [
+          { id: "5.5.1", code: "5.5.1", name: "Nhận giấy khen của Bí thư Đảng ủy / Giám đốc UEH", maxScore: 5 },
+          { id: "5.5.2", code: "5.5.2", name: "Nhận giấy khen của Bí thư Đảng bộ bộ phận / Giám đốc Phân hiệu", maxScore: 4 },
+          {
+            id: "5.5.3",
+            code: "5.5.3",
+            name: "Thành tích xuất sắc từ cấp tỉnh/thành phố trở lên",
+            maxScore: 10,
+            children: [
+              { id: "5.5.3.1", code: "5.5.3.1", name: "Đạt giải thưởng, danh hiệu, Sinh viên 5 Tốt cấp Tỉnh/Thành phố", maxScore: 5 }, // Changed 6 -> 5
+              { id: "5.5.3.2", code: "5.5.3.2", name: "Nhận bằng khen từ cấp tỉnh, thành phố trở lên", maxScore: 10 }
+            ]
+          },
+          {
+            id: "5.5.4",
+            code: "5.5.4",
+            name: "Đạt giải, danh hiệu hoặc thành tích tại các cuộc thi, hoạt động trong UEH",
+            maxScore: 10,
+            children: [
+              { id: "5.5.4.1", code: "5.5.4.1", name: "Hoạt động cấp khoa, viện, Đoàn - Hội cấp khoa, CLB/Đ/N", maxScore: 10 },
+              { id: "5.5.4.2", code: "5.5.4.2", name: "Hoạt động cấp UEH, Đoàn - Hội UEH, Trường thành viên", maxScore: 10 },
+              { id: "5.5.4.3", code: "5.5.4.3", name: "Đạt giải thưởng NCKH cấp trường thành viên / UEH", maxScore: 10 },
+              { id: "5.5.4.4", code: "5.5.4.4", name: "Đạt danh hiệu công dân Xanh UEH", maxScore: 5 }
+            ]
+          },
+          {
+            id: "5.5.5",
+            code: "5.5.5",
+            name: "Đạt danh hiệu Sinh viên 5 tốt",
+            maxScore: 2,
+            children: [
+              { id: "5.5.5.1", code: "5.5.5.1", name: "Đạt danh hiệu Sinh viên 5 tốt cấp khoa/viện/KTX", maxScore: 1 },
+              { id: "5.5.5.2", code: "5.5.5.2", name: "Đạt danh hiệu Sinh viên 5 tốt cấp UEH", maxScore: 2 }
+            ]
+          },
+          { id: "5.5.6", code: "5.5.6", name: "Nhận giấy khen của Bí thư Đoàn Thanh niên, Chủ tịch HSV UEH", maxScore: 2 }
+        ]
+      }
+    ]
+  }
+];
 
-    /* ==========================================================================
-       2. QUẢN LÝ TRẠNG THÁI ỨNG DỤNG (APP STATE & LOCALSTORAGE)
-       ========================================================================== */
-    const STORAGE_KEY_SCORES = "UEH_DRL_SCORES_2026";
-    const STORAGE_KEY_EVIDENCE = "UEH_DRL_EVIDENCE_2026";
-    const STORAGE_KEY_PROFILE = "UEH_DRL_PROFILE_2026";
+const GREEN_STRUCTURE = [
+  {
+    id: "g1",
+    code: "1.0",
+    name: "Ý thức tham gia các hoạt động hướng đến phát triển bền vững, Đại học Xanh, bảo vệ môi trường",
+    maxScore: 20,
+    children: [
+      { id: "g1.1", code: "1.1.0", name: "Thành viên CLB/Đ/N hướng đến phát triển bền vững, Đại học Xanh", maxScore: 2 },
+      {
+        id: "g1.2",
+        code: "1.2.0",
+        name: "Tham dự / BTC hoạt động thể hiện ý thức trách nhiệm xã hội, Đại học Xanh, bảo vệ môi trường",
+        maxScore: 5,
+        children: [
+          { id: "g1.2.1", code: "1.2.1.0", name: "Tại UEH: Tham dự hoạt động cấp UEH / Trường thành viên", maxScore: 5 },
+          { id: "g1.2.2", code: "1.2.2.0", name: "Tại UEH: Tham dự hoạt động cấp Khoa/Viện, CLB/Đ/N", maxScore: 5 },
+          { id: "g1.2.3", code: "1.2.3.0", name: "Tại UEH: Thành viên BTC cuộc thi cấp UEH", maxScore: 2 },
+          { id: "g1.2.4", code: "1.2.4.0", name: "Tại UEH: Thành viên BTC cuộc thi cấp Khoa/Viện", maxScore: 2 },
+          { id: "g1.2.5", code: "1.2.5.0", name: "Ngoài UEH: Tham gia/BTC các cuộc thi thể hiện trách nhiệm xanh", maxScore: 5 }
+        ]
+      }
+    ]
+  },
+  {
+    id: "g2",
+    code: "2.0",
+    name: "Ý thức tham gia kiểm tra kiến thức qua gamification - UEH Green Campus Game",
+    maxScore: 20,
+    children: [
+      { id: "g2.1", code: "2.1.0", name: "Đạt kết quả 50-70% (Đạt)", maxScore: 8 },
+      { id: "g2.2", code: "2.2.0", name: "Đạt kết quả 71% - 80% (Khá)", maxScore: 12 },
+      { id: "g2.3", code: "2.3.0", name: "Đạt kết quả 81% - 90% (Giỏi)", maxScore: 16 },
+      { id: "g2.4", code: "2.4.0", name: "Đạt kết quả 91% - 100% (Xuất sắc)", maxScore: 20 }
+    ]
+  },
+  {
+    id: "g3",
+    code: "3.0",
+    name: "Ý thức tham gia các hoạt động học thuật, nâng cao kiến thức liên quan đến chủ đề Xanh",
+    maxScore: 20,
+    children: [
+      {
+        id: "g3.1",
+        code: "3.1.0",
+        name: "Ghi nhận giải thưởng Nghiên cứu khoa học do đơn vị các cấp UEH tổ chức",
+        maxScore: 20,
+        children: [
+          { id: "g3.1.1", code: "3.1.1.0", name: "Giải nhất (tương đương) - Giải thưởng NCKH", maxScore: 20 },
+          { id: "g3.1.2", code: "3.1.2.0", name: "Giải nhì (tương đương) - Giải thưởng NCKH", maxScore: 20 },
+          { id: "g3.1.3", code: "3.1.3.0", name: "Giải ba (tương đương) - Giải thưởng NCKH", maxScore: 20 },
+          { id: "g3.1.4", code: "3.1.4.0", name: "Đạt (tương đương) - Giải thưởng NCKH", maxScore: 20 }
+        ]
+      },
+      {
+        id: "g3.2",
+        code: "3.2.0",
+        name: "Ghi nhận đạt giải các cuộc thi liên quan đến chủ đề Xanh",
+        maxScore: 20,
+        children: [
+          { id: "g3.2.1", code: "3.2.1.0", name: "Giải nhất (tương đương) - cuộc thi Xanh", maxScore: 20 },
+          { id: "g3.2.2", code: "3.2.2.0", name: "Giải nhì (tương đương) - cuộc thi Xanh", maxScore: 20 },
+          { id: "g3.2.3", code: "3.2.3.0", name: "Giải ba (tương đương) - cuộc thi Xanh", maxScore: 20 },
+          { id: "g3.2.4", code: "3.2.4.0", name: "Giải khuyến khích (tương đương) - cuộc thi Xanh", maxScore: 20 }
+        ]
+      },
+      { id: "g3.3", code: "3.3.0", name: "Tham gia NCKH ngoài UEH / có thành tích NCKH ngoài", maxScore: 10 },
+      {
+        id: "g3.4",
+        code: "3.4.0",
+        name: "Thành viên BTC, tham gia hoạt động ngoại khóa về học thuật liên quan đến chủ đề Xanh",
+        maxScore: 10,
+        children: [
+          { id: "g3.4.1", code: "3.4.1.0", name: "Tại UEH: Tham dự hoạt động cấp UEH / Trường thành viên", maxScore: 5 },
+          { id: "g3.4.2", code: "3.4.2.0", name: "Tại UEH: Tham dự hoạt động cấp Khoa/Viện, CLB/Đ/N", maxScore: 5 },
+          { id: "g3.4.3", code: "3.4.3.0", name: "Tại UEH: Thành viên BTC hoạt động cấp UEH", maxScore: 2 },
+          { id: "g3.4.4", code: "3.4.4.0", name: "Tại UEH: Thành viên BTC hoạt động cấp Khoa/Viện", maxScore: 2 },
+          { id: "g3.4.5", code: "3.4.5.0", name: "Ngoài UEH: Tham gia/BTC các hoạt động học thuật chủ đề Xanh", maxScore: 5 }
+        ]
+      }
+    ]
+  },
+  {
+    id: "g4",
+    code: "4.0",
+    name: "Đánh giá về ý thức tham gia các hành động trực tiếp, tích cực đến môi trường & sống khỏe",
+    maxScore: 40,
+    children: [
+      {
+        id: "g4.1",
+        code: "4.1.0",
+        name: "Ý thức tham gia các hoạt động thuộc Nhóm Hành động xanh vì môi trường",
+        maxScore: 20,
+        children: [
+          { id: "g4.1.1", code: "4.1.1.0", name: "Thực hành phân loại rác: Chụp hình phân loại rác thải", maxScore: 10 },
+          { id: "g4.1.2", code: "4.1.2.0", name: "Tham gia hoạt động cộng đồng: Dọn rác, trồng cây, Thứ 7 tình nguyện", maxScore: 10 },
+          { id: "g4.1.3", code: "4.1.3.0", name: "Hành vi cá nhân bền vững: Thách thức trực tiếp sống Xanh", maxScore: 10 }
+        ]
+      },
+      {
+        id: "g4.2",
+        code: "4.2.0",
+        name: "Ý thức tham gia các hoạt động thuộc Nhóm hành động Sống khỏe",
+        maxScore: 20,
+        children: [
+          {
+            id: "g4.2.1",
+            code: "4.2.1.0",
+            name: "Ý thức tham gia các hoạt động nâng cao sức khỏe thể chất (giải chạy, bơi lội, đạp xe)",
+            maxScore: 20,
+            children: [
+              { id: "g4.2.1.1", code: "4.2.1.1.0", name: "Thành viên CLB, đội, nhóm sức khỏe thể chất", maxScore: 2 },
+              { id: "g4.2.1.2", code: "4.2.1.2.0", name: "BTC, tham gia hoạt động ngoại khóa sức khỏe thể chất", maxScore: 10, children: [
+                { id: "g4.2.1.2.1", code: "4.2.1.2.1.0", name: "Tại UEH: Tham dự cấp UEH", maxScore: 5 },
+                { id: "g4.2.1.2.2", code: "4.2.1.2.2.0", name: "Tại UEH: Tham dự cấp Khoa/Viện", maxScore: 5 },
+                { id: "g4.2.1.2.3", code: "4.2.1.2.3.0", name: "Tại UEH: Thành viên BTC cấp UEH", maxScore: 2 },
+                { id: "g4.2.1.2.4", code: "4.2.1.2.4.0", name: "Tại UEH: Thành viên BTC cấp Khoa/Viện", maxScore: 2 },
+                { id: "g4.2.1.2.5", code: "4.2.1.2.5.0", name: "Ngoài UEH: Tham gia/BTC thể thao ngoài", maxScore: 5 }
+              ]},
+              { id: "g4.2.1.3", code: "4.2.1.3.0", name: "BTC, thí sinh dự thi các cuộc thi sức khỏe thể chất", maxScore: 10, children: [
+                { id: "g4.2.1.3.1", code: "4.2.1.3.1.0", name: "Tại UEH: Thí sinh/Đội thi cấp UEH", maxScore: 5 },
+                { id: "g4.2.1.3.2", code: "4.2.1.3.2.0", name: "Tại UEH: Thí sinh/Đội thi cấp Khoa/Viện", maxScore: 5 },
+                { id: "g4.2.1.3.3", code: "4.2.1.3.3.0", name: "Tại UEH: Thành viên BTC cuộc thi cấp UEH", maxScore: 2 },
+                { id: "g4.2.1.3.4", code: "4.2.1.3.4.0", name: "Tại UEH: Thành viên BTC cuộc thi cấp Khoa/Viện", maxScore: 2 },
+                { id: "g4.2.1.3.5", code: "4.2.1.3.5.0", name: "Ngoài UEH: Tham gia/BTC cuộc thi ngoài", maxScore: 5 }
+              ]}
+            ]
+          },
+          {
+            id: "g4.2.2",
+            code: "4.2.2.0",
+            name: "Ý thức tham gia các hoạt động nâng cao sức khỏe tinh thần (thảo luận, tọa đàm...)",
+            maxScore: 20,
+            children: [
+              { id: "g4.2.2.1", code: "4.2.2.1.0", name: "Thành viên CLB, đội, nhóm sức khỏe tinh thần", maxScore: 2 },
+              { id: "g4.2.2.2", code: "4.2.2.2.0", name: "BTC, tham gia hoạt động ngoại khóa sức khỏe tinh thần", maxScore: 10, children: [
+                { id: "g4.2.2.2.1", code: "4.2.2.2.1.0", name: "Tại UEH: Tham dự cấp UEH", maxScore: 5 },
+                { id: "g4.2.2.2.2", code: "4.2.2.2.2.0", name: "Tại UEH: Tham dự cấp Khoa/Viện", maxScore: 5 },
+                { id: "g4.2.2.2.3", code: "4.2.2.2.3.0", name: "Tại UEH: Thành viên BTC cấp UEH", maxScore: 2 },
+                { id: "g4.2.2.2.4", code: "4.2.2.2.4.0", name: "Tại UEH: Thành viên BTC cấp Khoa/Viện", maxScore: 2 },
+                { id: "g4.2.2.2.5", code: "4.2.2.2.5.0", name: "Ngoài UEH: Tham gia/BTC ngoài", maxScore: 5 }
+              ]},
+              { id: "g4.2.2.3", code: "4.2.2.3.0", name: "BTC, thí sinh dự thi các cuộc thi sức khỏe tinh thần", maxScore: 10, children: [
+                { id: "g4.2.2.3.1", code: "4.2.2.3.1.0", name: "Tại UEH: Thí sinh cấp UEH", maxScore: 5 },
+                { id: "g4.2.2.3.2", code: "4.2.2.3.2.0", name: "Tại UEH: Thí sinh cấp Khoa/Viện", maxScore: 5 },
+                { id: "g4.2.2.3.3", code: "4.2.2.3.3.0", name: "Tại UEH: BTC cuộc thi cấp UEH", maxScore: 2 },
+                { id: "g4.2.2.3.4", code: "4.2.2.3.4.0", name: "Tại UEH: BTC cuộc thi cấp Khoa/Viện", maxScore: 2 },
+                { id: "g4.2.2.3.5", code: "4.2.2.3.5.0", name: "Ngoài UEH: Tham gia/BTC cuộc thi ngoài", maxScore: 5 }
+              ]}
+            ]
+          }
+        ]
+      },
+      {
+        id: "g4.3",
+        code: "4.3.0",
+        name: "Ý thức tham gia hoạt động Giao thông công cộng (Shuttle Bus, Bus công cộng, MRT)",
+        maxScore: 20,
+        children: [
+          { id: "g4.3.1", code: "4.3.1.0", name: "10 lượt sử dụng", maxScore: 10 },
+          { id: "g4.3.2", code: "4.3.2.0", name: "15 lượt sử dụng", maxScore: 14 },
+          { id: "g4.3.3", code: "4.3.3.0", name: "25 lượt sử dụng", maxScore: 16 },
+          { id: "g4.3.4", code: "4.3.4.0", name: "50 lượt sử dụng", maxScore: 20 }
+        ]
+      }
+    ]
+  }
+];
 
-    let userScores = {}; // Key: item_id, Value: score
-    let evidenceList = []; // Array of evidence objects
-    let userProfile = { isBCS: false, isBCH: false, targetScore: 90 };
+// Helper to get initial Scores
+const getInitialDRLScores = () => {
+  return {
+    "1.1": 15,
+    "2.1": 10,
+    "3.1": 5,
+    "4.1": 10,
+    "5.1": 10
+  };
+};
 
-    // Khởi tạo ứng dụng khi load trang
-    window.addEventListener('DOMContentLoaded', () => {
-      loadLocalStorage();
-      initDefaultScores();
-      renderAllSheets();
-      renderEvidenceList();
-      populateEvidenceCategoryDropdown();
-      generateKPISuggestions();
+const getInitialGreenScores = () => {
+  return {};
+};
+
+// Main Component
+export default function App() {
+  const [activeTab, setActiveTab] = useState('sheet');
+  const [drlScores, setDrlScores] = useState(() => {
+    const saved = localStorage.getItem('ueh_drl_scores');
+    return saved ? JSON.parse(saved) : getInitialDRLScores();
+  });
+
+  const [greenScores, setGreenScores] = useState(() => {
+    const saved = localStorage.getItem('ueh_green_scores');
+    return saved ? JSON.parse(saved) : getInitialGreenScores();
+  });
+
+  const [evidences, setEvidences] = useState(() => {
+    const saved = localStorage.getItem('ueh_evidences');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  // Role in Tab 3
+  const [userRole, setUserRole] = useState(() => {
+    return localStorage.getItem('ueh_user_role') || 'NONE';
+  });
+
+  // Custom Reset Confirmation Modal State
+  const [showResetConfirmModal, setShowResetConfirmModal] = useState(false);
+  const [toastMessage, setToastMessage] = useState(null);
+
+  // Sync to LocalStorage
+  useEffect(() => {
+    localStorage.setItem('ueh_drl_scores', JSON.stringify(drlScores));
+  }, [drlScores]);
+
+  useEffect(() => {
+    localStorage.setItem('ueh_green_scores', JSON.stringify(greenScores));
+  }, [greenScores]);
+
+  useEffect(() => {
+    localStorage.setItem('ueh_evidences', JSON.stringify(evidences));
+  }, [evidences]);
+
+  useEffect(() => {
+    localStorage.setItem('ueh_user_role', userRole);
+  }, [userRole]);
+
+  // Toast trigger
+  const triggerToast = (msg) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  // Score Calculation Helpers (Hierarchical Cap Enforced)
+  const calculateNodeScore = (node, scoresMap) => {
+    if (!node.children || node.children.length === 0) {
+      const inputVal = scoresMap[node.id] !== undefined ? parseFloat(scoresMap[node.id]) || 0 : 0;
+      if (node.isBaseFixed) {
+        return node.baseScore || 0;
+      }
+      return inputVal;
+    }
+
+    let rawChildSum = 0;
+    node.children.forEach(child => {
+      rawChildSum += calculateNodeScore(child, scoresMap);
     });
 
-    function loadLocalStorage() {
-      const storedScores = localStorage.getItem(STORAGE_KEY_SCORES);
-      if (storedScores) userScores = JSON.parse(storedScores);
-
-      const storedEvidence = localStorage.getItem(STORAGE_KEY_EVIDENCE);
-      if (storedEvidence) evidenceList = JSON.parse(storedEvidence);
-
-      const storedProfile = localStorage.getItem(STORAGE_KEY_PROFILE);
-      if (storedProfile) {
-        userProfile = JSON.parse(storedProfile);
-        document.getElementById('role-bcs').checked = userProfile.isBCS;
-        document.getElementById('role-bch').checked = userProfile.isBCH;
-        document.getElementById('kpi-target-select').value = userProfile.targetScore || 90;
-      }
+    if (node.isNegative) {
+      return Math.max(rawChildSum, node.maxScore); // e.g. Max penalty -10
     }
 
-    function saveLocalStorage() {
-      localStorage.setItem(STORAGE_KEY_SCORES, JSON.stringify(userScores));
-      localStorage.setItem(STORAGE_KEY_EVIDENCE, JSON.stringify(evidenceList));
-      localStorage.setItem(STORAGE_KEY_PROFILE, JSON.stringify(userProfile));
-      calculateTotalsAndRenderHeader();
-    }
+    return Math.min(rawChildSum, node.maxScore);
+  };
 
-    function initDefaultScores() {
-      // Đặt giá trị mặc định nếu chưa có trong LocalStorage
-      const setDefaults = (items) => {
-        items.forEach(item => {
-          if (item.default !== undefined && userScores[item.id] === undefined) {
-            userScores[item.id] = item.default;
-          }
-          if (item.children) setDefaults(item.children);
-        });
-      };
-      setDefaults(DRL_DATA);
-      setDefaults(GREEN_DATA);
-      saveLocalStorage();
-    }
-
-    /* ==========================================================================
-       3. TÍNH TOÁN ĐIỂM QUY TẮC CÂY PHÂN CẤP (CAP MAX CAP BẬC)
-       ========================================================================== */
-    function getItemCalculatedScore(item) {
-      // Nếu là node lá (không có con), trả về điểm người dùng nhập (hoặc 0)
-      if (!item.children || item.children.length === 0) {
-        const val = parseFloat(userScores[item.id]);
-        return isNaN(val) ? 0 : Math.min(val, item.max);
-      }
-
-      // Nếu có node con, tổng điểm = tổng các con nhưng KHÔNG VƯỢT QUÁ max của chính node này
-      let childSum = 0;
-      item.children.forEach(child => {
-        childSum += getItemCalculatedScore(child);
-      });
-
-      return Math.min(childSum, item.max);
-    }
-
-    function calculateTotalDRL() {
-      let total = 0;
-      DRL_DATA.forEach(major => {
-        total += getItemCalculatedScore(major);
-      });
-      return Math.min(total, 100);
-    }
-
-    function calculateTotalGreen() {
-      let total = 0;
-      GREEN_DATA.forEach(major => {
-        total += getItemCalculatedScore(major);
-      });
-      return Math.min(total, 100);
-    }
-
-    function calculateTotalsAndRenderHeader() {
-      const greenTotal = calculateTotalGreen();
-      
-      // Quy tắc kiểm chứng: Nếu Green Citizens đạt 100đ, cộng 5đ vào mục 5.5.5.4
-      if (greenTotal >= 100) {
-        userScores["5.5.5.4"] = 5;
-        document.getElementById('green-bonus-badge').innerText = "+5 ĐRL Bonus Active!";
-        document.getElementById('green-bonus-badge').className = "block text-[10px] bg-green-500 text-white font-bold px-1.5 py-0.5 rounded-full mt-0.5";
-      } else {
-        document.getElementById('green-bonus-badge').innerText = "+0 ĐRL Bonus";
-        document.getElementById('green-bonus-badge').className = "block text-[10px] bg-gray-600 text-white font-bold px-1.5 py-0.5 rounded-full mt-0.5";
-      }
-
-      const drlTotal = calculateTotalDRL();
-
-      // Render Header Text
-      document.getElementById('drl-total-header').innerText = drlTotal;
-      document.getElementById('green-total-header').innerText = greenTotal;
-
-      // Classify DRL Rank
-      const rankBadge = document.getElementById('drl-rank-badge');
-      if (drlTotal >= 90) {
-        rankBadge.innerText = "Xuất Sắc";
-        rankBadge.className = "block text-[10px] bg-green-500 text-white font-bold px-1.5 py-0.5 rounded-full mt-0.5";
-      } else if (drlTotal >= 80) {
-        rankBadge.innerText = "Tốt";
-        rankBadge.className = "block text-[10px] bg-blue-500 text-white font-bold px-1.5 py-0.5 rounded-full mt-0.5";
-      } else if (drlTotal >= 65) {
-        rankBadge.innerText = "Khá";
-        rankBadge.className = "block text-[10px] bg-yellow-500 text-white font-bold px-1.5 py-0.5 rounded-full mt-0.5";
-      } else if (drlTotal >= 50) {
-        rankBadge.innerText = "Trung Bình";
-        rankBadge.className = "block text-[10px] bg-orange-500 text-white font-bold px-1.5 py-0.5 rounded-full mt-0.5";
-      } else {
-        rankBadge.innerText = "Yếu / Kém";
-        rankBadge.className = "block text-[10px] bg-red-500 text-white font-bold px-1.5 py-0.5 rounded-full mt-0.5";
-      }
-    }
-
-    /* ==========================================================================
-       4. RENDER GIAO DIỆN SHEET (TAB 1)
-       ========================================================================== */
-    function renderAllSheets() {
-      renderSheet('drl-table-body', DRL_DATA);
-      renderSheet('green-table-body', GREEN_DATA);
-      calculateTotalsAndRenderHeader();
-    }
-
-    function renderSheet(containerId, dataTree) {
-      const tbody = document.getElementById(containerId);
-      tbody.innerHTML = "";
-
-      const renderNode = (node, depth = 0) => {
-        const tr = document.createElement('tr');
-        tr.className = "border-b transition hover:bg-gray-50";
-
-        // Styling theo độ cấp của tiêu chí
-        if (node.type === "major") {
-          tr.classList.add('bg-item-major', 'font-bold');
-        } else if (node.type === "sub") {
-          tr.classList.add('bg-item-sub');
-        } else {
-          tr.classList.add('bg-item-child');
-        }
-
-        const calculatedScore = getItemCalculatedScore(node);
-        const hasChildren = node.children && node.children.length > 0;
-
-        // Cột Mã Mục
-        const tdCode = `<td class="py-2.5 px-4 text-center font-black ${node.type === 'major' ? 'text-blue-900 text-base' : 'text-gray-700'}">${node.code}</td>`;
-
-        // Cột Tiêu chí (Indent theo độ sâu)
-        const indent = "&nbsp;&nbsp;&nbsp;&nbsp;".repeat(depth);
-        const icon = node.type === 'major' ? '<i class="fa-solid fa-folder text-blue-700 mr-2"></i>' : (node.type === 'sub' ? '<i class="fa-solid fa-angle-right text-gray-500 mr-2"></i>' : '<i class="fa-regular fa-circle-dot text-green-600 mr-2"></i>');
-        const tdTitle = `<td class="py-2.5 px-4">${indent}${icon}<span>${node.title}</span></td>`;
-
-        // Cột Điểm Tối Đa
-        const tdMax = `<td class="py-2.5 px-4 text-center font-semibold text-gray-600">${node.max} đ</td>`;
-
-        // Cột Điểm Đạt Được (Input nếu không có con)
-        let tdInput = "";
-        if (hasChildren) {
-          tdInput = `<td class="py-2.5 px-4 text-center font-bold text-blue-900 bg-gray-100/70">${calculatedScore} / ${node.max}</td>`;
-        } else {
-          const currentVal = userScores[node.id] !== undefined ? userScores[node.id] : 0;
-          tdInput = `
-            <td class="py-2.5 px-4 text-center">
-              <input type="number" min="0" max="${node.max}" step="0.5" value="${currentVal}"
-                onchange="handleScoreChange('${node.id}', this.value, ${node.max})"
-                class="w-20 text-center py-1 px-2 border rounded font-bold text-blue-900 border-blue-300 focus:ring-2 focus:ring-blue-500 bg-white">
-            </td>
-          `;
-        }
-
-        // Cột Trạng thái
-        let statusBadge = "";
-        if (calculatedScore >= node.max) {
-          statusBadge = `<span class="bg-green-100 text-green-800 text-xs px-2.5 py-1 rounded-full font-bold"><i class="fa-solid fa-check"></i> Max Điểm</span>`;
-        } else if (calculatedScore > 0) {
-          statusBadge = `<span class="bg-yellow-100 text-yellow-800 text-xs px-2.5 py-1 rounded-full font-semibold">Đã đạt ${calculatedScore}đ</span>`;
-        } else {
-          statusBadge = `<span class="bg-gray-100 text-gray-500 text-xs px-2.5 py-1 rounded-full">Chưa có điểm</span>`;
-        }
-        const tdStatus = `<td class="py-2.5 px-4 text-center">${statusBadge}</td>`;
-
-        tr.innerHTML = tdCode + tdTitle + tdMax + tdInput + tdStatus;
-        tbody.appendChild(tr);
-
-        // Đệ quy render các con
-        if (hasChildren) {
-          node.children.forEach(child => renderNode(child, depth + 1));
-        }
-      };
-
-      dataTree.forEach(majorNode => renderNode(majorNode, 0));
-    }
-
-    function handleScoreChange(itemId, value, maxVal) {
-      let numVal = parseFloat(value);
-      if (isNaN(numVal) || numVal < 0) numVal = 0;
-      if (numVal > maxVal) {
-        alert(`Mục này chỉ được nhập tối đa ${maxVal} điểm! Hệ thống đã tự điều chỉnh về ${maxVal}đ.`);
-        numVal = maxVal;
-      }
-      userScores[itemId] = numVal;
-      saveLocalStorage();
-      renderAllSheets();
-      generateKPISuggestions();
-    }
-
-    function toggleSheetView(viewType) {
-      const drlWrapper = document.getElementById('drl-sheet-wrapper');
-      const greenWrapper = document.getElementById('green-sheet-wrapper');
-      const btnDrl = document.getElementById('btn-view-drl');
-      const btnGreen = document.getElementById('btn-view-green');
-
-      if (viewType === 'drl') {
-        drlWrapper.classList.remove('hidden');
-        greenWrapper.classList.add('hidden');
-        btnDrl.className = "px-4 py-1.5 rounded-lg text-sm font-semibold bg-ueh-blue text-white";
-        btnGreen.className = "px-4 py-1.5 rounded-lg text-sm font-semibold bg-gray-200 text-gray-700 hover:bg-green-600 hover:text-white transition";
-      } else {
-        drlWrapper.classList.add('hidden');
-        greenWrapper.classList.remove('hidden');
-        btnGreen.className = "px-4 py-1.5 rounded-lg text-sm font-semibold bg-green-600 text-white";
-        btnDrl.className = "px-4 py-1.5 rounded-lg text-sm font-semibold bg-gray-200 text-gray-700 hover:bg-blue-600 hover:text-white transition";
-      }
-    }
-
-    function resetDataPrompt() {
-      if (confirm("Bạn có chắc chắn muốn đưa bảng điểm về trạng thái mặc định không? (Các minh chứng đã lưu sẽ giữ nguyên)")) {
-        userScores = {};
-        initDefaultScores();
-        renderAllSheets();
-        generateKPISuggestions();
-      }
-    }
-
-    /* ==========================================================================
-       5. QUẢN LÝ KHO MINH CHỨNG (TAB 2: EVIDENCE VAULT)
-       ========================================================================== */
-    function populateEvidenceCategoryDropdown() {
-      const select = document.getElementById('ev-category');
-      select.innerHTML = "";
-
-      const addOptions = (items) => {
-        items.forEach(item => {
-          if (!item.children || item.children.length === 0) {
-            const opt = document.createElement('option');
-            opt.value = item.code;
-            opt.innerText = `[${item.code}] ${item.title}`;
-            select.appendChild(opt);
-          } else {
-            addOptions(item.children);
-          }
-        });
-      };
-
-      const groupDRL = document.createElement('optgroup');
-      groupDRL.label = "-- BẢNG ĐIỂM RÈN LUYỆN --";
-      select.appendChild(groupDRL);
-      addOptions(DRL_DATA);
-
-      const groupGreen = document.createElement('optgroup');
-      groupGreen.label = "-- BẢNG GREEN CITIZENS --";
-      select.appendChild(groupGreen);
-      addOptions(GREEN_DATA);
-    }
-
-    // Xử lý preview ảnh tải lên bằng Base64 DataURL
-    document.getElementById('ev-image-input').addEventListener('change', function(e) {
-      const file = e.target.files[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = function(evt) {
-          document.getElementById('image-preview').src = evt.target.result;
-          document.getElementById('image-preview-container').classList.remove('hidden');
-        };
-        reader.readAsDataURL(file);
-      }
+  const totalDRLScore = useMemo(() => {
+    let sum = 0;
+    DRL_STRUCTURE.forEach(section => {
+      sum += calculateNodeScore(section, drlScores);
     });
+    return Math.min(Math.max(sum, 0), 100);
+  }, [drlScores]);
 
-    function handleSaveEvidence(e) {
-      e.preventDefault();
-      const id = document.getElementById('ev-id').value || "EV_" + Date.now();
-      const title = document.getElementById('ev-title').value;
-      const category = document.getElementById('ev-category').value;
-      const score = parseFloat(document.getElementById('ev-score').value) || 0;
-      const status = document.getElementById('ev-status').value;
-      const date = document.getElementById('ev-date').value || new Date().toISOString().split('T')[0];
-      const fbLink = document.getElementById('ev-fb-link').value;
-      const imagePreview = document.getElementById('image-preview').src;
+  const totalGreenScore = useMemo(() => {
+    let sum = 0;
+    GREEN_STRUCTURE.forEach(section => {
+      sum += calculateNodeScore(section, greenScores);
+    });
+    return Math.min(Math.max(sum, 0), 100);
+  }, [greenScores]);
 
-      const existingIndex = evidenceList.findIndex(ev => ev.id === id);
-      const evidenceObj = {
-        id, title, category, score, status, date, fbLink,
-        image: imagePreview && !imagePreview.endsWith('#') ? imagePreview : (existingIndex >= 0 ? evidenceList[existingIndex].image : '')
-      };
-
-      if (existingIndex >= 0) {
-        evidenceList[existingIndex] = evidenceObj;
-      } else {
-        evidenceList.push(evidenceObj);
-      }
-
-      saveLocalStorage();
-      renderEvidenceList();
-      resetEvidenceForm();
-      alert("Đã lưu hoạt động & minh chứng thành công!");
+  // Handle Score Input
+  const handleScoreChange = (id, val, maxScore, isNegative = false) => {
+    let parsed = parseFloat(val);
+    if (isNaN(parsed)) {
+      parsed = 0;
     }
 
-    function renderEvidenceList() {
-      const container = document.getElementById('evidence-container');
-      const search = document.getElementById('ev-search').value.toLowerCase();
-      container.innerHTML = "";
+    if (isNegative) {
+      // For negative points
+      if (parsed > 0) parsed = -parsed;
+      if (parsed < maxScore) parsed = maxScore;
+    } else {
+      if (parsed < 0) parsed = 0;
+      if (parsed > maxScore) parsed = maxScore;
+    }
 
-      const filtered = evidenceList.filter(ev => 
-        ev.title.toLowerCase().includes(search) || ev.category.toLowerCase().includes(search)
-      );
+    setDrlScores(prev => ({
+      ...prev,
+      [id]: parsed
+    }));
+  };
 
-      if (filtered.length === 0) {
-        container.innerHTML = `<div class="col-span-2 text-center py-8 text-gray-400 text-xs">Chưa có minh chứng nào được lưu. Hãy thêm hoạt động ở khung bên cạnh!</div>`;
-        return;
-      }
+  const handleGreenScoreChange = (id, val, maxScore) => {
+    let parsed = parseFloat(val);
+    if (isNaN(parsed)) parsed = 0;
+    if (parsed < 0) parsed = 0;
+    if (parsed > maxScore) parsed = maxScore;
 
-      filtered.forEach(ev => {
-        const card = document.createElement('div');
-        card.className = "bg-gray-50 p-3 rounded-lg border border-gray-200 flex flex-col justify-between space-y-2 shadow-sm hover:shadow transition";
+    setGreenScores(prev => ({
+      ...prev,
+      [id]: parsed
+    }));
+  };
 
-        const isCompleted = ev.status === 'hoan_thanh';
-        const statusBadge = isCompleted 
-          ? `<span class="bg-green-100 text-green-800 text-[10px] font-bold px-2 py-0.5 rounded"><i class="fa-solid fa-circle-check"></i> Hoàn thành</span>`
-          : `<span class="bg-yellow-100 text-yellow-800 text-[10px] font-bold px-2 py-0.5 rounded"><i class="fa-solid fa-clock"></i> Chưa xong</span>`;
+  // Perform Reset (Fully Functional)
+  const performReset = () => {
+    const initialDRL = getInitialDRLScores();
+    const initialGreen = getInitialGreenScores();
 
-        card.innerHTML = `
-          <div>
-            <div class="flex justify-between items-start gap-2">
-              <h3 class="font-bold text-xs text-gray-800 line-clamp-2">${ev.title}</h3>
-              ${statusBadge}
+    setDrlScores(initialDRL);
+    setGreenScores(initialGreen);
+    setEvidences([]);
+
+    localStorage.setItem('ueh_drl_scores', JSON.stringify(initialDRL));
+    localStorage.setItem('ueh_green_scores', JSON.stringify(initialGreen));
+    localStorage.setItem('ueh_evidences', JSON.stringify([]));
+
+    setShowResetConfirmModal(false);
+    triggerToast("Đã reset ĐRL về 50đ, Green về 0đ và xóa sạch minh chứng!");
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-pink-100 text-gray-800 font-sans pb-12">
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="fixed top-5 right-5 z-50 bg-purple-700 text-white px-5 py-3 rounded-2xl shadow-xl flex items-center space-x-3 animate-bounce">
+          <CheckCircle className="w-5 h-5 text-pink-300" />
+          <span className="font-medium text-sm">{toastMessage}</span>
+        </div>
+      )}
+
+      {/* Header Banner */}
+      <header className="bg-white/80 backdrop-blur-md border-b border-pink-200 sticky top-0 z-40 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-col md:flex-row justify-between items-center gap-4">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-pink-400 to-purple-500 flex items-center justify-center text-white shadow-md">
+              <Award className="w-6 h-6" />
             </div>
-            
-            <div class="mt-2 text-[11px] text-gray-600 space-y-1">
-              <p><strong>Mục:</strong> <span class="text-blue-700 font-semibold">${ev.category}</span> (+${ev.score}đ)</p>
-              <p><strong>Ngày:</strong> ${ev.date}</p>
-              ${ev.fbLink ? `<p><a href="${ev.fbLink}" target="_blank" class="text-blue-600 hover:underline inline-flex items-center gap-1"><i class="fa-brands fa-facebook"></i> Link BTC Fanpage</a></p>` : ''}
+            <div>
+              <h1 className="text-xl font-bold bg-gradient-to-r from-pink-600 to-purple-600 bg-clip-text text-transparent">
+                UEH ĐRL & Green Citizens Calculator
+              </h1>
+              <p className="text-xs text-purple-600 font-medium">Mục tiêu: Aim 90+ Xuất Sắc | Giao diện Hồng & Tím Pastel</p>
+            </div>
+          </div>
+
+          {/* Quick Real-time Overview Widgets */}
+          <div className="flex items-center space-x-3">
+            <div className="bg-gradient-to-r from-pink-100 to-pink-200 border border-pink-300 rounded-2xl px-4 py-1.5 flex items-center space-x-3 shadow-inner">
+              <span className="text-xs font-semibold text-pink-700">TỔNG ĐRL:</span>
+              <span className="text-lg font-extrabold text-pink-800">{totalDRLScore.toFixed(1)} / 100</span>
             </div>
 
-            ${ev.image ? `
-              <div class="mt-2 relative group">
-                <img src="${ev.image}" class="h-24 w-full object-cover rounded border">
-                <a href="${ev.image}" download="MinhChung_${ev.category}.png" class="absolute bottom-1 right-1 bg-black/70 text-white text-[10px] px-2 py-1 rounded hover:bg-black">
-                  <i class="fa-solid fa-download"></i> Tải Ảnh
-                </a>
-              </div>
-            ` : ''}
+            <div className="bg-gradient-to-r from-emerald-100 to-teal-100 border border-emerald-300 rounded-2xl px-4 py-1.5 flex items-center space-x-3 shadow-inner">
+              <Leaf className="w-4 h-4 text-emerald-600" />
+              <span className="text-xs font-semibold text-emerald-800">GREEN:</span>
+              <span className="text-lg font-extrabold text-emerald-900">{totalGreenScore.toFixed(1)} / 100</span>
+            </div>
+
+            <button
+              onClick={() => setShowResetConfirmModal(true)}
+              className="bg-white hover:bg-pink-100 text-pink-600 border border-pink-300 px-3 py-2 rounded-2xl text-xs font-semibold flex items-center space-x-1.5 transition shadow-sm hover:shadow"
+              title="Reset lại từ đầu"
+            >
+              <RefreshCw className="w-4 h-4" />
+              <span className="hidden sm:inline">Reset</span>
+            </button>
           </div>
+        </div>
 
-          <div class="flex justify-end gap-2 border-t pt-2 mt-2">
-            <button onclick="editEvidence('${ev.id}')" class="text-xs text-blue-600 hover:underline"><i class="fa-solid fa-pen-to-square"></i> Sửa</button>
-            <button onclick="deleteEvidence('${ev.id}')" class="text-xs text-red-600 hover:underline"><i class="fa-solid fa-trash"></i> Xóa</button>
-          </div>
-        `;
-        container.appendChild(card);
-      });
-    }
-
-    function editEvidence(id) {
-      const ev = evidenceList.find(item => item.id === id);
-      if (!ev) return;
-      document.getElementById('ev-id').value = ev.id;
-      document.getElementById('ev-title').value = ev.title;
-      document.getElementById('ev-category').value = ev.category;
-      document.getElementById('ev-score').value = ev.score;
-      document.getElementById('ev-status').value = ev.status;
-      document.getElementById('ev-date').value = ev.date;
-      document.getElementById('ev-fb-link').value = ev.fbLink || '';
-      if (ev.image) {
-        document.getElementById('image-preview').src = ev.image;
-        document.getElementById('image-preview-container').classList.remove('hidden');
-      }
-    }
-
-    function deleteEvidence(id) {
-      if (confirm("Bạn có chắc muốn xóa minh chứng này?")) {
-        evidenceList = evidenceList.filter(ev => ev.id !== id);
-        saveLocalStorage();
-        renderEvidenceList();
-      }
-    }
-
-    function resetEvidenceForm() {
-      document.getElementById('evidence-form').reset();
-      document.getElementById('ev-id').value = "";
-      document.getElementById('image-preview-container').classList.add('hidden');
-      document.getElementById('image-preview').src = "";
-    }
-
-    /* ==========================================================================
-       6. TRỢ LÝ STRATEGY KPI & FB POST READER & AI ASSISTANT (TAB 3)
-       ========================================================================== */
-    function updateProfileRole() {
-      userProfile.isBCS = document.getElementById('role-bcs').checked;
-      userProfile.isBCH = document.getElementById('role-bch').checked;
-
-      // Tự động ưu tiên cộng điểm cán bộ nếu chọn
-      if (userProfile.isBCS || userProfile.isBCH) {
-        userScores["1.3"] = 5;
-        userScores["2.3"] = 5;
-        userScores["5.2"] = 5;
-      }
-      saveLocalStorage();
-      renderAllSheets();
-      generateKPISuggestions();
-    }
-
-    function generateKPISuggestions() {
-      const target = parseInt(document.getElementById('kpi-target-select').value) || 90;
-      userProfile.targetScore = target;
-      document.getElementById('target-display').innerText = target;
-
-      const currentDRL = calculateTotalDRL();
-      const container = document.getElementById('kpi-suggestions-list');
-      container.innerHTML = "";
-
-      if (currentDRL >= target) {
-        container.innerHTML = `
-          <div class="p-3 bg-green-50 border border-green-200 rounded-lg text-xs text-green-800">
-            <i class="fa-solid fa-circle-check text-green-600 text-lg mr-2"></i>
-            <strong>Chúc mừng!</strong> Bạn đã đạt mục tiêu <strong>${currentDRL} / ${target} điểm</strong>. Hãy tiếp tục duy trì và nộp đầy đủ minh chứng!
-          </div>
-        `;
-        return;
-      }
-
-      // Duyệt tìm các mục chưa max điểm
-      const missingItems = [];
-      const collectMissing = (items) => {
-        items.forEach(item => {
-          if (!item.children || item.children.length === 0) {
-            const current = userScores[item.id] !== undefined ? parseFloat(userScores[item.id]) : 0;
-            if (current < item.max) {
-              missingItems.push({
-                code: item.code,
-                title: item.title,
-                max: item.max,
-                current: current,
-                gap: item.max - current
-              });
-            }
-          } else {
-            collectMissing(item.children);
-          }
-        });
-      };
-      collectMissing(DRL_DATA);
-
-      // Sắp xếp các mục dễ lấy điểm nhất lên đầu (khoảng gap lớn)
-      missingItems.sort((a, b) => b.gap - a.gap);
-
-      missingItems.slice(0, 5).forEach(item => {
-        const card = document.createElement('div');
-        card.className = "bg-gray-50 p-2.5 rounded border border-gray-200 flex justify-between items-center text-xs";
-        card.innerHTML = `
-          <div>
-            <span class="font-bold text-blue-800">[${item.code}]</span>
-            <span class="text-gray-700 font-medium ml-1">${item.title}</span>
-            <div class="text-[10px] text-gray-500 mt-0.5">Hiện có: ${item.current}/${item.max}đ (Còn thiếu ${item.gap}đ)</div>
-          </div>
-          <button onclick="switchTab('tab1')" class="bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1 rounded text-[11px] font-bold">
-            + Nhập Điểm
+        {/* Tab Navigation */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex space-x-2 border-t border-pink-100 pt-2">
+          <button
+            onClick={() => setActiveTab('sheet')}
+            className={`px-4 py-2 text-sm font-semibold rounded-t-2xl transition flex items-center space-x-2 border-b-2 ${
+              activeTab === 'sheet'
+                ? 'bg-pink-500 text-white border-pink-600 shadow-md'
+                : 'text-purple-600 hover:bg-pink-100/50 border-transparent'
+            }`}
+          >
+            <FileSpreadsheet className="w-4 h-4" />
+            <span>Trang 1: Bảng Tính & Nhập Điểm</span>
           </button>
-        `;
-        container.appendChild(card);
-      });
-    }
 
-    // FB POST READER & MATCH DRS ENGINE
-    function analyzeFBPost() {
-      const text = document.getElementById('fb-post-input').value.trim();
-      if (!text) {
-        alert("Vui lòng dán văn bản thông báo bài đăng từ Facebook!");
-        return;
-      }
+          <button
+            onClick={() => setActiveTab('evidence')}
+            className={`px-4 py-2 text-sm font-semibold rounded-t-2xl transition flex items-center space-x-2 border-b-2 ${
+              activeTab === 'evidence'
+                ? 'bg-purple-600 text-white border-purple-700 shadow-md'
+                : 'text-purple-600 hover:bg-purple-100/50 border-transparent'
+            }`}
+          >
+            <FileCheck className="w-4 h-4" />
+            <span>Trang 2: Kho Minh Chứng ({evidences.length})</span>
+          </button>
 
-      const resultBox = document.getElementById('post-analysis-result');
-      resultBox.classList.remove('hidden');
+          <button
+            onClick={() => setActiveTab('assistant')}
+            className={`px-4 py-2 text-sm font-semibold rounded-t-2xl transition flex items-center space-x-2 border-b-2 ${
+              activeTab === 'assistant'
+                ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white border-purple-800 shadow-md'
+                : 'text-purple-600 hover:bg-pink-100/50 border-transparent'
+            }`}
+          >
+            <Sparkles className="w-4 h-4" />
+            <span>Trang 3: Trợ Lý AI & KPI 90+</span>
+          </button>
+        </div>
+      </header>
 
-      // Giả lập thuật toán NLP matching tiêu chí dựa trên từ khóa DRS UEH
-      let matchedCode = "3.4.3.4";
-      let matchedScore = 5;
-      let matchedTitle = "Hoạt động/Cuộc thi Học thuật cấp Trường/Khoa";
+      {/* MAIN CONTAINER CONTENT */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
+        {activeTab === 'sheet' && (
+          <SheetViewTab
+            drlScores={drlScores}
+            greenScores={greenScores}
+            handleScoreChange={handleScoreChange}
+            handleGreenScoreChange={handleGreenScoreChange}
+            calculateNodeScore={calculateNodeScore}
+            totalDRLScore={totalDRLScore}
+            totalGreenScore={totalGreenScore}
+          />
+        )}
 
-      if (text.toLowerCase().includes("công dân xanh") || text.toLowerCase().includes("green")) {
-        matchedCode = "G1.1";
-        matchedScore = 15;
-        matchedTitle = "Khóa học / Hoạt động Green Citizens UEH";
-      } else if (text.toLowerCase().includes("hội thảo") || text.toLowerCase().includes("webinar")) {
-        matchedCode = "3.4.3.3";
-        matchedScore = 5;
-        matchedTitle = "Hội thảo Chuyên môn UEH";
-      } else if (text.toLowerCase().includes("hiến máu") || text.toLowerCase().includes("tình nguyện")) {
-        matchedCode = "4.2";
-        matchedScore = 10;
-        matchedTitle = "Hoạt động Xã hội / Tình nguyện";
-      }
+        {activeTab === 'evidence' && (
+          <EvidenceVaultTab
+            evidences={evidences}
+            setEvidences={setEvidences}
+            triggerToast={triggerToast}
+          />
+        )}
 
-      // Kiểm tra tình trạng điểm hiện tại của sinh viên ở mục này
-      const currentScore = userScores[matchedCode] || 0;
-      const maxScore = 10; // default cap
-      const isFull = currentScore >= maxScore;
+        {activeTab === 'assistant' && (
+          <AIAssistantTab
+            totalDRLScore={totalDRLScore}
+            drlScores={drlScores}
+            userRole={userRole}
+            setUserRole={setUserRole}
+            setDrlScores={setDrlScores}
+            triggerToast={triggerToast}
+          />
+        )}
+      </main>
 
-      document.getElementById('analysis-title').innerText = text.substring(0, 60) + "...";
-      document.getElementById('analysis-category').innerText = `[${matchedCode}] ${matchedTitle}`;
-      document.getElementById('analysis-score').innerText = `+${matchedScore} điểm`;
-      document.getElementById('analysis-current-status').innerText = `${currentScore}/${maxScore}đ`;
+      {/* CUSTOM RESET CONFIRMATION MODAL */}
+      {showResetConfirmModal && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-pink-200 animate-in fade-in zoom-in duration-200">
+            <div className="flex items-center space-x-3 text-pink-600 mb-4">
+              <AlertCircle className="w-8 h-8" />
+              <h3 className="text-lg font-bold">Xác nhận Reset lại tất cả?</h3>
+            </div>
+            <p className="text-sm text-gray-600 mb-6 leading-relaxed">
+              Thao tác này sẽ trả Điểm Rèn Luyện về <strong className="text-pink-600">50 điểm ban đầu</strong>, Điểm Green Citizens về <strong className="text-emerald-600">0 điểm</strong>, và <strong className="text-purple-600">xóa toàn bộ minh chứng</strong> đã tải lên.
+            </p>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setShowResetConfirmModal(false)}
+                className="px-4 py-2 rounded-xl text-sm font-semibold bg-gray-100 hover:bg-gray-200 text-gray-700"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                onClick={performReset}
+                className="px-4 py-2 rounded-xl text-sm font-semibold bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-md hover:opacity-90"
+              >
+                Đồng ý Reset
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
-      const recBadge = document.getElementById('analysis-recommendation');
-      if (isFull) {
-        recBadge.innerText = "KHÔNG NÊN THAM GIA";
-        recBadge.className = "text-xs font-black px-2 py-1 rounded bg-red-100 text-red-800";
-      } else {
-        recBadge.innerText = "NÊN THAM GIA NGAY";
-        recBadge.className = "text-xs font-black px-2 py-1 rounded bg-green-100 text-green-800";
-      }
+// ==========================================
+// TAB 1: SHEET VIEW COMPONENT
+// ==========================================
+function SheetViewTab({
+  drlScores,
+  greenScores,
+  handleScoreChange,
+  handleGreenScoreChange,
+  calculateNodeScore,
+  totalDRLScore,
+  totalGreenScore
+}) {
+  const [activeSubTab, setActiveSubTab] = useState('drl');
 
-      // Lưu tạm dữ liệu đã phân tích để bấm nút thêm
-      window.lastAnalyzedPost = {
-        title: text.substring(0, 40) + "...",
-        category: matchedCode,
-        score: matchedScore
+  return (
+    <div className="space-y-6">
+      {/* Sub Tabs Toggle */}
+      <div className="flex justify-between items-center bg-white p-3 rounded-2xl shadow-sm border border-pink-100">
+        <div className="flex space-x-2">
+          <button
+            onClick={() => setActiveSubTab('drl')}
+            className={`px-5 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-2 ${
+              activeSubTab === 'drl'
+                ? 'bg-blue-600 text-white shadow'
+                : 'bg-gray-100 text-gray-600 hover:bg-pink-50'
+            }`}
+          >
+            <Award className="w-4 h-4" />
+            <span>BẢNG ĐIỂM RÈN LUYỆN (ĐRL)</span>
+          </button>
+          <button
+            onClick={() => setActiveSubTab('green')}
+            className={`px-5 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-2 ${
+              activeSubTab === 'green'
+                ? 'bg-emerald-600 text-white shadow'
+                : 'bg-gray-100 text-gray-600 hover:bg-emerald-50'
+            }`}
+          >
+            <Leaf className="w-4 h-4" />
+            <span>BẢNG ĐIỂM GREEN CITIZENS</span>
+          </button>
+        </div>
+
+        <div className="text-xs text-purple-600 italic font-medium hidden md:block">
+          *Tất cả tiêu chí 6đ đã được sửa lại thành 5đ theo yêu cầu.
+        </div>
+      </div>
+
+      {activeSubTab === 'drl' ? (
+        <div className="bg-white rounded-3xl shadow-md border border-pink-200 overflow-hidden">
+          <div className="bg-gradient-to-r from-blue-700 to-blue-900 text-white px-6 py-4 flex justify-between items-center">
+            <div>
+              <h2 className="font-bold text-lg">BẢNG TIÊU CHÍ ĐIỂM RÈN LUYỆN UEH</h2>
+              <p className="text-xs opacity-90">Có sẵn 50 điểm khởi tạo ở các mục 1.1, 2.1, 3.1, 4.1, 5.1</p>
+            </div>
+            <div className="text-right">
+              <span className="text-xs uppercase font-semibold text-blue-200">Tổng điểm ĐRL hiện tại:</span>
+              <div className="text-2xl font-black text-yellow-300">{totalDRLScore.toFixed(1)} / 100</div>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm border-collapse">
+              <thead>
+                <tr className="bg-blue-100/70 text-blue-900 text-xs uppercase font-bold border-b border-blue-200">
+                  <th className="py-3 px-4 w-24">Mã mục</th>
+                  <th className="py-3 px-4">Tên tiêu chí rèn luyện</th>
+                  <th className="py-3 px-4 text-center w-32">Mức điểm tối đa</th>
+                  <th className="py-3 px-4 text-center w-36">Điểm đạt được</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {DRL_STRUCTURE.map(section => (
+                  <DRLRow
+                    key={section.id}
+                    node={section}
+                    level={1}
+                    scoresMap={drlScores}
+                    onScoreChange={handleScoreChange}
+                    calculateNodeScore={calculateNodeScore}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : (
+        <div className="bg-white rounded-3xl shadow-md border border-emerald-200 overflow-hidden">
+          <div className="bg-gradient-to-r from-emerald-700 to-teal-800 text-white px-6 py-4 flex justify-between items-center">
+            <div>
+              <h2 className="font-bold text-lg">BẢNG TIÊU CHÍ GREEN CITIZENS UEH</h2>
+              <p className="text-xs opacity-90">Khởi tạo: 0 điểm - Tối đa 100 điểm</p>
+            </div>
+            <div className="text-right">
+              <span className="text-xs uppercase font-semibold text-emerald-200">Tổng Green Citizens:</span>
+              <div className="text-2xl font-black text-emerald-300">{totalGreenScore.toFixed(1)} / 100</div>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm border-collapse">
+              <thead>
+                <tr className="bg-emerald-100/70 text-emerald-900 text-xs uppercase font-bold border-b border-emerald-200">
+                  <th className="py-3 px-4 w-28">Mã mục</th>
+                  <th className="py-3 px-4">Tên tiêu chí Green Citizens</th>
+                  <th className="py-3 px-4 text-center w-32">Cộng tối đa</th>
+                  <th className="py-3 px-4 text-center w-36">Điểm đạt được</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {GREEN_STRUCTURE.map(section => (
+                  <GreenRow
+                    key={section.id}
+                    node={section}
+                    level={1}
+                    scoresMap={greenScores}
+                    onScoreChange={handleGreenScoreChange}
+                    calculateNodeScore={calculateNodeScore}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Recursive Table Row for DRL Sheet
+function DRLRow({ node, level, scoresMap, onScoreChange, calculateNodeScore }) {
+  const hasChildren = node.children && node.children.length > 0;
+  const currentScore = calculateNodeScore(node, scoresMap);
+
+  // Background styling strictly matching requirements:
+  // Level 1 (Mục lớn): Tô dòng xanh dương, mã mục xanh dương đậm
+  // Level 2 (Mục nhỏ): Màu xám
+  // Level 3+ (Mục con): Xanh nhạt
+  let rowStyle = "";
+  let codeStyle = "";
+
+  if (level === 1) {
+    rowStyle = "bg-blue-60 font-bold border-t-2 border-blue-200 text-blue-900";
+    codeStyle = "text-blue-900 font-extrabold text-base";
+  } else if (level === 2) {
+    rowStyle = "bg-gray-100/80 font-semibold text-gray-800";
+    codeStyle = "text-gray-700 font-bold";
+  } else {
+    rowStyle = "bg-blue-50/40 text-gray-700 hover:bg-blue-50/80 transition";
+    codeStyle = "text-blue-600 font-medium";
+  }
+
+  return (
+    <>
+      <tr className={`${rowStyle}`}>
+        <td className={`py-3 px-4 ${codeStyle}`}>{node.code}</td>
+        <td className="py-3 px-4">
+          <div style={{ paddingLeft: `${(level - 1) * 16}px` }} className="flex items-center space-x-2">
+            {node.isBaseFixed && (
+              <span className="text-[10px] bg-blue-200 text-blue-800 px-2 py-0.5 rounded-md font-bold">Cố định có sẵn</span>
+            )}
+            <span>{node.name}</span>
+          </div>
+        </td>
+        <td className="py-3 px-4 text-center">
+          <span className={`px-2 py-1 rounded text-xs font-bold ${node.isNegative ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-800'}`}>
+            {node.isNegative ? node.maxScore : `+${node.maxScore}`}đ
+          </span>
+        </td>
+        <td className="py-3 px-4 text-center">
+          {hasChildren ? (
+            <span className="font-extrabold text-blue-900 text-sm">{currentScore.toFixed(1)}đ</span>
+          ) : node.isBaseFixed ? (
+            <span className="font-bold text-gray-600 bg-gray-200 px-3 py-1 rounded-lg text-xs">{node.baseScore}đ</span>
+          ) : (
+            <input
+              type="number"
+              step="0.5"
+              min={node.isNegative ? node.maxScore : 0}
+              max={node.isNegative ? 0 : node.maxScore}
+              value={scoresMap[node.id] !== undefined ? scoresMap[node.id] : 0}
+              onChange={(e) => onScoreChange(node.id, e.target.value, node.maxScore, node.isNegative)}
+              className="w-20 text-center font-bold bg-white border border-blue-300 rounded-lg py-1 px-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none shadow-sm"
+            />
+          )}
+        </td>
+      </tr>
+
+      {hasChildren &&
+        node.children.map(child => (
+          <DRLRow
+            key={child.id}
+            node={child}
+            level={level + 1}
+            scoresMap={scoresMap}
+            onScoreChange={onScoreChange}
+            calculateNodeScore={calculateNodeScore}
+          />
+        ))}
+    </>
+  );
+}
+
+// Recursive Table Row for Green Citizens Sheet
+function GreenRow({ node, level, scoresMap, onScoreChange, calculateNodeScore }) {
+  const hasChildren = node.children && node.children.length > 0;
+  const currentScore = calculateNodeScore(node, scoresMap);
+
+  let rowStyle = "";
+  if (level === 1) rowStyle = "bg-emerald-100/70 font-bold border-t-2 border-emerald-200 text-emerald-950";
+  else if (level === 2) rowStyle = "bg-emerald-50/60 font-semibold text-emerald-900";
+  else rowStyle = "bg-white text-gray-700 hover:bg-emerald-50/30";
+
+  return (
+    <>
+      <tr className={rowStyle}>
+        <td className="py-3 px-4 font-bold text-emerald-800 text-xs">{node.code}</td>
+        <td className="py-3 px-4">
+          <div style={{ paddingLeft: `${(level - 1) * 16}px` }}>{node.name}</div>
+        </td>
+        <td className="py-3 px-4 text-center">
+          <span className="bg-emerald-100 text-emerald-800 px-2 py-1 rounded text-xs font-bold">
+            +{node.maxScore}đ
+          </span>
+        </td>
+        <td className="py-3 px-4 text-center">
+          {hasChildren ? (
+            <span className="font-extrabold text-emerald-900">{currentScore.toFixed(1)}đ</span>
+          ) : (
+            <input
+              type="number"
+              step="0.5"
+              min="0"
+              max={node.maxScore}
+              value={scoresMap[node.id] !== undefined ? scoresMap[node.id] : 0}
+              onChange={(e) => onScoreChange(node.id, e.target.value, node.maxScore)}
+              className="w-20 text-center font-bold bg-white border border-emerald-300 rounded-lg py-1 px-2 text-sm focus:ring-2 focus:ring-emerald-400 focus:outline-none shadow-sm"
+            />
+          )}
+        </td>
+      </tr>
+
+      {hasChildren &&
+        node.children.map(child => (
+          <GreenRow
+            key={child.id}
+            node={child}
+            level={level + 1}
+            scoresMap={scoresMap}
+            onScoreChange={onScoreChange}
+            calculateNodeScore={calculateNodeScore}
+          />
+        ))}
+    </>
+  );
+}
+
+// ==========================================
+// TAB 2: EVIDENCE VAULT COMPONENT
+// ==========================================
+function EvidenceVaultTab({ evidences, setEvidences, triggerToast }) {
+  const [activityName, setActivityName] = useState('');
+  const [criteriaCode, setCriteriaCode] = useState('2.7.3.1');
+  const [score, setScore] = useState('2.5');
+  const [fbLink, setFbLink] = useState('');
+  const [selectedImages, setSelectedImages] = useState([]);
+  const [editingId, setEditingId] = useState(null);
+
+  // Handle Multi Image Upload
+  const handleImageUpload = (e) => {
+    const files = Array.from(e.target.files);
+    files.forEach(file => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setSelectedImages(prev => [...prev, reader.result]);
       };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  // Add or Edit Evidence Entry
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!activityName.trim()) return;
+
+    if (editingId) {
+      setEvidences(prev =>
+        prev.map(item =>
+          item.id === editingId
+            ? {
+                ...item,
+                activityName,
+                criteriaCode,
+                score: parseFloat(score) || 0,
+                fbLink,
+                images: selectedImages
+              }
+            : item
+        )
+      );
+      setEditingId(null);
+      triggerToast('Đã cập nhật hoạt động!');
+    } else {
+      const newEntry = {
+        id: Date.now().toString(),
+        activityName,
+        criteriaCode,
+        score: parseFloat(score) || 0,
+        fbLink,
+        images: selectedImages,
+        status: 'CHUA_XONG' // 'CHUA_XONG' or 'HOAN_THANH'
+      };
+      setEvidences(prev => [newEntry, ...prev]);
+      triggerToast('Đã thêm minh chứng mới!');
     }
 
-    function addAnalyzedToVault() {
-      if (!window.lastAnalyzedPost) return;
-      document.getElementById('ev-title').value = window.lastAnalyzedPost.title;
-      document.getElementById('ev-category').value = window.lastAnalyzedPost.category;
-      document.getElementById('ev-score').value = window.lastAnalyzedPost.score;
-      switchTab('tab2');
+    // Reset Form
+    setActivityName('');
+    setFbLink('');
+    setSelectedImages([]);
+    setScore('2.5');
+  };
+
+  const handleEdit = (item) => {
+    setEditingId(item.id);
+    setActivityName(item.activityName);
+    setCriteriaCode(item.criteriaCode);
+    setScore(item.score.toString());
+    setFbLink(item.fbLink || '');
+    setSelectedImages(item.images || []);
+  };
+
+  const handleDelete = (id) => {
+    setEvidences(prev => prev.filter(item => item.id !== id));
+    triggerToast('Đã xóa minh chứng');
+  };
+
+  const toggleStatus = (id) => {
+    setEvidences(prev =>
+      prev.map(item =>
+        item.id === id
+          ? { ...item, status: item.status === 'HOAN_THANH' ? 'CHUA_XONG' : 'HOAN_THANH' }
+          : item
+      )
+    );
+  };
+
+  // Bulk Download photos of an activity
+  const handleDownloadImages = (images, activityName) => {
+    images.forEach((imgSrc, idx) => {
+      const link = document.createElement('a');
+      link.href = imgSrc;
+      link.download = `MinhChung_${activityName}_Anh${idx + 1}.png`;
+      link.click();
+    });
+  };
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Upload & Entry Form */}
+      <div className="bg-white p-6 rounded-3xl shadow-md border border-purple-200 h-fit space-y-4">
+        <h2 className="text-lg font-bold text-purple-900 flex items-center space-x-2 border-b border-purple-100 pb-3">
+          <Upload className="w-5 h-5 text-purple-600" />
+          <span>{editingId ? 'Chỉnh Sửa Hoạt Động' : 'Thêm Minh Chứng Mới'}</span>
+        </h2>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-xs font-bold text-purple-800 mb-1">Tên Hoạt Động / Chương Trình *</label>
+            <input
+              type="text"
+              required
+              placeholder="Vd: Chuỗi tập huấn Kỹ năng sinh viên..."
+              value={activityName}
+              onChange={e => setActivityName(e.target.value)}
+              className="w-full px-3 py-2 border border-purple-200 rounded-xl text-sm focus:ring-2 focus:ring-purple-400 focus:outline-none"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-bold text-purple-800 mb-1">Mã Mục Tiêu Chí</label>
+              <input
+                type="text"
+                value={criteriaCode}
+                onChange={e => setCriteriaCode(e.target.value)}
+                placeholder="2.7.3.1"
+                className="w-full px-3 py-2 border border-purple-200 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-purple-400 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-purple-800 mb-1">Điểm Hoạt Động</label>
+              <input
+                type="number"
+                step="0.5"
+                value={score}
+                onChange={e => setScore(e.target.value)}
+                className="w-full px-3 py-2 border border-purple-200 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-purple-400 focus:outline-none"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-purple-800 mb-1">Link Fanpage / Post Facebook BTC</label>
+            <input
+              type="url"
+              placeholder="https://facebook.com/..."
+              value={fbLink}
+              onChange={e => setFbLink(e.target.value)}
+              className="w-full px-3 py-2 border border-purple-200 rounded-xl text-sm focus:ring-2 focus:ring-purple-400 focus:outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-purple-800 mb-1">Tải Lên Nhiều Ảnh Chứng Nhận</label>
+            <input
+              type="file"
+              multiple
+              accept="image/*"
+              onChange={handleImageUpload}
+              className="w-full text-xs text-purple-700 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-purple-100 file:text-purple-700 hover:file:bg-purple-200 cursor-pointer"
+            />
+          </div>
+
+          {/* Uploaded Images Preview */}
+          {selectedImages.length > 0 && (
+            <div className="flex flex-wrap gap-2 pt-2 border-t border-purple-100">
+              {selectedImages.map((img, i) => (
+                <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden border border-purple-300">
+                  <img src={img} alt="Preview" className="w-full h-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => setSelectedImages(prev => prev.filter((_, idx) => idx !== i))}
+                    className="absolute top-0 right-0 bg-red-500 text-white rounded-bl p-0.5"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="flex space-x-2 pt-2">
+            <button
+              type="submit"
+              className="flex-1 bg-gradient-to-r from-purple-600 to-pink-500 text-white py-2.5 rounded-xl font-bold text-sm shadow hover:opacity-90 transition"
+            >
+              {editingId ? 'Cập Nhật' : 'Lưu Minh Chứng'}
+            </button>
+            {editingId && (
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingId(null);
+                  setActivityName('');
+                  setSelectedImages([]);
+                }}
+                className="bg-gray-200 text-gray-700 px-3 py-2.5 rounded-xl text-sm font-semibold"
+              >
+                Hủy
+              </button>
+            )}
+          </div>
+        </form>
+      </div>
+
+      {/* Evidence List & Vault Stream */}
+      <div className="lg:col-span-2 space-y-4">
+        <div className="flex justify-between items-center bg-white px-5 py-3 rounded-2xl border border-purple-200 shadow-sm">
+          <h3 className="font-bold text-purple-900 text-sm flex items-center space-x-2">
+            <Layers className="w-4 h-4 text-purple-600" />
+            <span>Danh Sách Minh Chứng Đã Lưu Kho ({evidences.length})</span>
+          </h3>
+          <span className="text-xs text-purple-600 font-medium">Sẵn sàng xuất / tải xuống kê khai</span>
+        </div>
+
+        {evidences.length === 0 ? (
+          <div className="bg-white rounded-3xl p-12 text-center border border-dashed border-purple-200 text-purple-400">
+            <Image className="w-12 h-12 mx-auto mb-2 opacity-50" />
+            <p className="text-sm font-medium">Chưa có minh chứng nào được lưu trữ.</p>
+            <p className="text-xs text-gray-400 mt-1">Hãy tải ảnh và điền thông tin bên trái để lưu kho.</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {evidences.map(item => (
+              <div
+                key={item.id}
+                className="bg-white rounded-3xl p-5 shadow-sm border border-purple-100 hover:shadow-md transition space-y-3"
+              >
+                <div className="flex justify-between items-start">
+                  <div>
+                    <div className="flex items-center space-x-2">
+                      <span className="bg-purple-100 text-purple-800 text-xs font-black px-2.5 py-0.5 rounded-md">
+                        Mục {item.criteriaCode}
+                      </span>
+                      <span className="bg-pink-100 text-pink-700 text-xs font-bold px-2 py-0.5 rounded-md">
+                        +{item.score}đ
+                      </span>
+                    </div>
+                    <h4 className="font-bold text-gray-800 text-base mt-1.5">{item.activityName}</h4>
+                  </div>
+
+                  {/* Status Toggle Badge */}
+                  <button
+                    onClick={() => toggleStatus(item.id)}
+                    className={`px-3 py-1 rounded-full text-xs font-bold transition flex items-center space-x-1 ${
+                      item.status === 'HOAN_THANH'
+                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                        : 'bg-amber-100 text-amber-800 border border-amber-300'
+                    }`}
+                  >
+                    <CheckCircle className="w-3.5 h-3.5" />
+                    <span>{item.status === 'HOAN_THANH' ? 'Hoàn thành' : 'Chưa xong'}</span>
+                  </button>
+                </div>
+
+                {/* FB Link */}
+                {item.fbLink && (
+                  <a
+                    href={item.fbLink}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center space-x-1 text-xs text-blue-600 font-medium hover:underline"
+                  >
+                    <LinkIcon className="w-3 h-3" />
+                    <span>Link Fanpage BTC Hoạt động</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                )}
+
+                {/* Attached Images */}
+                {item.images && item.images.length > 0 && (
+                  <div className="pt-2">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-xs font-bold text-gray-500">
+                        Hình ảnh đã upload ({item.images.length} ảnh):
+                      </span>
+                      <button
+                        onClick={() => handleDownloadImages(item.images, item.activityName)}
+                        className="text-xs font-bold text-purple-600 hover:text-purple-800 flex items-center space-x-1"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        <span>Tải về tất cả {item.images.length} ảnh</span>
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+                      {item.images.map((img, idx) => (
+                        <div key={idx} className="h-20 rounded-xl overflow-hidden border border-purple-200">
+                          <img src={img} alt="Evidence" className="w-full h-full object-cover" />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Card Controls */}
+                <div className="flex justify-end space-x-2 pt-2 border-t border-gray-100">
+                  <button
+                    onClick={() => handleEdit(item)}
+                    className="px-3 py-1 bg-purple-50 text-purple-700 rounded-lg text-xs font-bold hover:bg-purple-100"
+                  >
+                    Sửa
+                  </button>
+                  <button
+                    onClick={() => handleDelete(item)}
+                    className="px-3 py-1 bg-red-50 text-red-600 rounded-lg text-xs font-bold hover:bg-red-100"
+                  >
+                    Xóa
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ==========================================
+// TAB 3: TRỢ LÝ AI & KHẢO SÁT KPI 90+
+// ==========================================
+function AIAssistantTab({ totalDRLScore, drlScores, userRole, setUserRole, setDrlScores, triggerToast }) {
+  const [fbPostText, setFbPostText] = useState('');
+  const [extractedInfo, setExtractedInfo] = useState(null);
+  const [chatMessages, setChatMessages] = useState([
+    { sender: 'ai', text: 'Chào bạn! Mình là Trợ lý AI ĐRL UEH. Bạn cần mình tư vấn phong trào nào để bứt phá lên 90+ - 100 điểm kỳ này?' }
+  ]);
+  const [chatInput, setChatInput] = useState('');
+
+  // Proposed KPI Actions list (Deletable)
+  const [proposedKPIs, setProposedKPIs] = useState([
+    { id: 'k1', name: 'Tham gia cuộc thi Học thuật cấp Khoa/Viện', code: '2.7.4.2', point: 5, category: 'Học thuật' },
+    { id: 'k2', name: 'Đăng ký Tham quan Doanh nghiệp do Khoa/UEH tổ chức', code: '2.7.2', point: 5, category: 'Doanh nghiệp' },
+    { id: 'k3', name: 'Thi UEH Green Campus Game (Đạt 91-100%)', code: '20 (Green)', point: 20, category: 'Green' },
+    { id: 'k4', name: 'Tham gia Chiến dịch tình nguyện / Tiếp sức mùa thi', code: '3.5.2', point: 5, category: 'Tình nguyện' }
+  ]);
+
+  const removeKPI = (id) => {
+    setProposedKPIs(prev => prev.filter(k => k.id !== id));
+  };
+
+  // Analyze FB Post
+  const handleAnalyzeFBPost = () => {
+    if (!fbPostText.trim()) return;
+
+    // Intelligent Keyword Mapping Simulator for DRS UEH
+    const textLower = fbPostText.toLowerCase();
+    let detectedCode = "2.7.3.1";
+    let scoreAssigned = 5;
+    let targetAudience = "Tất cả sinh viên UEH";
+
+    if (textLower.includes("xanh") || textLower.includes("môi trường") || textLower.includes("rác")) {
+      detectedCode = "3.3.2.1";
+      scoreAssigned = 5;
+    } else if (textLower.includes("tình nguyện") || textLower.includes("hiến máu")) {
+      detectedCode = "3.5.2";
+      scoreAssigned = 5;
+    } else if (textLower.includes("cuộc thi") || textLower.includes("thí sinh")) {
+      detectedCode = "2.7.4.1";
+      scoreAssigned = 5;
     }
 
-    // AI CONSULTANT ENGINE
-    function sendAIChat() {
-      const input = document.getElementById('ai-query-input');
-      const text = input.value.trim();
-      if (!text) return;
+    setExtractedInfo({
+      criteriaCode: detectedCode,
+      suggestedScore: scoreAssigned,
+      targetAudience: targetAudience,
+      requirements: "Điền form đăng ký + Có ảnh tham dự check-in"
+    });
+  };
 
-      appendChatMessage(text, 'user');
-      input.value = "";
+  // Add analyzed score directly into sheet
+  const applyExtractedScore = () => {
+    if (!extractedInfo) return;
+    setDrlScores(prev => ({
+      ...prev,
+      [extractedInfo.criteriaCode]: (prev[extractedInfo.criteriaCode] || 0) + extractedInfo.suggestedScore
+    }));
+    triggerToast(`Đã cộng +${extractedInfo.suggestedScore}đ vào mục ${extractedInfo.criteriaCode}`);
+  };
 
-      // Giả lập AI phản hồi quy định UEH
-      setTimeout(() => {
-        let reply = "Hệ thống quy định ĐRL UEH ghi nhận hoạt động của bạn. Hãy đảm bảo bạn nộp minh chứng trước cuối học kỳ!";
-        const q = text.toLowerCase();
+  // Chatbot Send
+  const handleSendMessage = () => {
+    if (!chatInput.trim()) return;
+    const userMsg = chatInput;
+    setChatMessages(prev => [...prev, { sender: 'user', text: userMsg }]);
+    setChatInput('');
 
-        if (q.includes("reset") || q.includes("học kỳ")) {
-          reply = "LƯU Ý RESET ĐIỂM UEH:\n- Học kỳ cuối (Tháng 8 - Tháng 12)\n- Học kỳ đầu (Tháng 1 - Tháng 5)\nĐRL sẽ reset về 50 điểm mặc định và Green Citizens về 0đ khi bắt đầu đợt đánh giá mới.";
-        } else if (q.includes("green") || q.includes("5.5.5.4")) {
-          reply = "QUY TẮC CÔNG DÂN XANH: Nếu bạn đạt đủ 100 điểm trên Bảng Green Citizens, hệ thống sẽ tự động cấp Bonus +5 điểm vào Mục 5.5.5.4 của Bảng ĐRL UEH!";
-        } else if (q.includes("max") || q.includes("3.4")) {
-          reply = "MẸO MAX MỤC 3.4: Mục 3.4 tối đa 10 điểm. Bạn chỉ cần tham gia 2 Hội thảo cấp Trường (5đ/buổi) hoặc 2 Cuộc thi học thuật là sẽ FULL 10đ ngay.";
-        }
-
-        appendChatMessage(reply, 'ai');
-      }, 500);
-    }
-
-    function quickAIQuery(text) {
-      document.getElementById('ai-query-input').value = text;
-      sendAIChat();
-    }
-
-    function appendChatMessage(msg, sender) {
-      const chatBox = document.getElementById('ai-chat-box');
-      const div = document.createElement('div');
-      
-      if (sender === 'user') {
-        div.className = "bg-purple-600 text-white p-2.5 rounded-lg max-w-[85%] ml-auto text-right";
-      } else {
-        div.className = "bg-blue-100 text-blue-900 p-2.5 rounded-lg max-w-[85%]";
+    setTimeout(() => {
+      let aiReply = "Để đạt trên 90 điểm, bạn nên hoàn thành tuần SHCD đợt 1 (10đ), đăng ký 1 cuộc thi học thuật (+5đ) và tham gia test Green Campus Game đạt Xuất sắc!";
+      if (userMsg.toLowerCase().includes("thiếu") || userMsg.toLowerCase().includes("làm sao")) {
+        aiReply = "Bạn hiện đang có " + totalDRLScore.toFixed(1) + " điểm. Hãy tận dụng mục 5.4.1 (Hỗ trợ hoạt động lớp +2đ) hoặc tham gia các chương trình tình nguyện ngắn hạn.";
       }
-      div.innerText = msg;
-      chatBox.appendChild(div);
-      chatBox.scrollTop = chatBox.scrollHeight;
-    }
+      setChatMessages(prev => [...prev, { sender: 'ai', text: aiReply }]);
+    }, 600);
+  };
 
-    /* ==========================================================================
-       7. SWITCH TAB NAVIGATION
-       ========================================================================== */
-    function switchTab(tabId) {
-      ['tab1', 'tab2', 'tab3'].forEach(id => {
-        document.getElementById(id).classList.add('hidden');
-        document.getElementById(`${id}-btn`).className = "py-2.5 px-5 font-semibold text-sm border-b-4 border-transparent text-gray-300 hover:text-white flex items-center gap-2";
-      });
+  return (
+    <div className="space-y-6">
+      {/* User Role Survey Banner */}
+      <div className="bg-white p-6 rounded-3xl shadow-sm border border-purple-200">
+        <h2 className="text-base font-bold text-purple-900 mb-2 flex items-center space-x-2">
+          <UserCheck className="w-5 h-5 text-purple-600" />
+          <span>Khảo Sát Vai Trò Cán Bộ (Ưu tiên cộng điểm mục 5.3)</span>
+        </h2>
+        <p className="text-xs text-gray-600 mb-4">
+          Hãy chọn vai trò của bạn tại UEH để AI tính toán các mục cộng điểm quản lý dễ lấy nhất.
+        </p>
+        <div className="flex flex-wrap gap-3">
+          {[
+            { id: 'NONE', label: 'Sinh viên thường' },
+            { id: 'BCS', label: 'Ban Cán Sự Lớp (Lớp trưởng/Lớp phó)' },
+            { id: 'BCH', label: 'BCH Đoàn - Hội / Ban Điều Hành CLB/Đ/N' }
+          ].map(role => (
+            <button
+              key={role.id}
+              onClick={() => setUserRole(role.id)}
+              className={`px-4 py-2 rounded-2xl text-xs font-bold transition border ${
+                userRole === role.id
+                  ? 'bg-purple-600 text-white border-purple-700 shadow'
+                  : 'bg-purple-50 text-purple-800 border-purple-200 hover:bg-purple-100'
+              }`}
+            >
+              {role.label}
+            </button>
+          ))}
+        </div>
+      </div>
 
-      document.getElementById(tabId).classList.remove('hidden');
-      document.getElementById(`${tabId}-btn`).className = "py-2.5 px-5 font-semibold text-sm border-b-4 border-yellow-400 text-white flex items-center gap-2";
-    }
-  </script>
-</body>
-</html>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Strategy & Recommended KPIs */}
+        <div className="bg-white p-6 rounded-3xl shadow-sm border border-pink-200 space-y-4">
+          <div className="flex justify-between items-center">
+            <h3 className="font-bold text-pink-900 text-base flex items-center space-x-2">
+              <Sparkles className="w-5 h-5 text-pink-500" />
+              <span>Đề Xuất KPI Bứt Phá Aim 90+ - 100đ</span>
+            </h3>
+            <span className="text-xs font-black text-pink-600 bg-pink-100 px-3 py-1 rounded-full">
+              Còn thiếu {(90 - totalDRLScore > 0 ? 90 - totalDRLScore : 0).toFixed(1)}đ để đạt 90
+            </span>
+          </div>
+
+          <div className="space-y-3">
+            {proposedKPIs.map(kpi => (
+              <div
+                key={kpi.id}
+                className="flex items-center justify-between p-3.5 bg-pink-50/50 rounded-2xl border border-pink-100 hover:bg-pink-50 transition"
+              >
+                <div>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-[10px] font-black bg-purple-200 text-purple-800 px-2 py-0.5 rounded">
+                      {kpi.code}
+                    </span>
+                    <span className="text-xs font-bold text-pink-700">+{kpi.point}đ</span>
+                  </div>
+                  <h4 className="text-xs font-bold text-gray-800 mt-1">{kpi.name}</h4>
+                </div>
+                <button
+                  onClick={() => removeKPI(kpi.id)}
+                  className="text-gray-400 hover:text-red-500 p-1"
+                  title="Xóa đề xuất này nếu không làm được"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Facebook Post Reader & Analyzer */}
+        <div className="bg-white p-6 rounded-3xl shadow-sm border border-purple-200 space-y-4">
+          <h3 className="font-bold text-purple-900 text-base flex items-center space-x-2">
+            <Search className="w-5 h-5 text-purple-600" />
+            <span>Bộ Phân Tích Bài Viết Hoạt Động (FB Post Reader)</span>
+          </h3>
+          <p className="text-xs text-gray-500">
+            Dán thông báo hoạt động từ Fanpage Facebook vào đây. Trợ lý sẽ tự tra cứu và đối soát với quy định DRS UEH.
+          </p>
+
+          <textarea
+            rows="3"
+            placeholder="Dán nội dung bài viết/thông báo hoạt động từ Facebook vào đây..."
+            value={fbPostText}
+            onChange={e => setFbPostText(e.target.value)}
+            className="w-full p-3 border border-purple-200 rounded-2xl text-xs focus:ring-2 focus:ring-purple-400 focus:outline-none"
+          ></textarea>
+
+          <button
+            onClick={handleAnalyzeFBPost}
+            className="w-full bg-purple-600 text-white py-2.5 rounded-2xl font-bold text-xs shadow hover:bg-purple-700 transition"
+          >
+            Phân Tích Hoạt Động Ngay
+          </button>
+
+          {extractedInfo && (
+            <div className="p-4 bg-purple-50 rounded-2xl border border-purple-200 space-y-2 text-xs">
+              <div className="flex justify-between items-center">
+                <span className="font-bold text-purple-900">Kết quả phân tích:</span>
+                <span className="bg-purple-200 text-purple-900 font-extrabold px-2 py-0.5 rounded">
+                  Mục {extractedInfo.criteriaCode}
+                </span>
+              </div>
+              <p><strong>Điểm dự kiến:</strong> +{extractedInfo.suggestedScore}đ</p>
+              <p><strong>Đối tượng:</strong> {extractedInfo.targetAudience}</p>
+              <button
+                onClick={applyExtractedScore}
+                className="mt-2 w-full bg-pink-500 text-white py-1.5 rounded-xl font-bold hover:bg-pink-600"
+              >
+                Cộng trực tiếp +{extractedInfo.suggestedScore}đ vào Bảng tính
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* AI Chatbot Interactive */}
+      <div className="bg-white rounded-3xl p-6 shadow-sm border border-pink-200 space-y-4">
+        <h3 className="font-bold text-purple-900 text-sm flex items-center space-x-2">
+          <MessageSquare className="w-4 h-4 text-pink-500" />
+          <span>Con AI Tư Vấn Hoạt Động UEH</span>
+        </h3>
+
+        <div className="h-48 overflow-y-auto space-y-3 p-3 bg-pink-50/30 rounded-2xl border border-pink-100">
+          {chatMessages.map((msg, idx) => (
+            <div
+              key={idx}
+              className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+            >
+              <div
+                className={`max-w-md px-4 py-2.5 rounded-2xl text-xs leading-relaxed ${
+                  msg.sender === 'user'
+                    ? 'bg-purple-600 text-white rounded-br-none'
+                    : 'bg-white text-gray-800 border border-pink-200 shadow-sm rounded-bl-none'
+                }`}
+              >
+                {msg.text}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex space-x-2">
+          <input
+            type="text"
+            placeholder="Hỏi AI về cách tích điểm ĐRL..."
+            value={chatInput}
+            onChange={e => setChatInput(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleSendMessage()}
+            className="flex-1 px-4 py-2.5 border border-purple-200 rounded-2xl text-xs focus:ring-2 focus:ring-purple-400 focus:outline-none"
+          />
+          <button
+            onClick={handleSendMessage}
+            className="bg-purple-600 text-white px-5 py-2.5 rounded-2xl font-bold text-xs hover:bg-purple-700"
+          >
+            Gửi
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
